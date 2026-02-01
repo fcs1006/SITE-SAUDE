@@ -1,0 +1,796 @@
+// LISTA DE USUÁRIOS E SENHAS
+const USUARIOS_PERMITIDOS = {
+  "alsiony": "cko170560",
+  "fernando": "#Caramelo1006",
+  "gleicyane": "cko170560",
+};
+
+// --- ROTEAMENTO ---
+function doGet(e) {
+
+  if (e.parameter && e.parameter.page === 'jesus') {
+    return HtmlService.createHtmlOutputFromFile('JESUS')
+      .setTitle('Relatório Jesus')
+      .addMetaTag('viewport', 'width=device-width, initial-scale=1')
+      .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+  }
+
+  if (e.parameter && e.parameter.page === 'relatorio') {
+    return HtmlService.createHtmlOutputFromFile('RELATORIO')
+      .setTitle('Relatório Geral')
+      .addMetaTag('viewport', 'width=device-width, initial-scale=1')
+      .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+  }
+
+  // ✅ NOVA ROTA — RESUMO
+  if (e.parameter && e.parameter.page === 'resumo') {
+    return HtmlService.createHtmlOutputFromFile('RESUMO')
+      .setTitle('Resumo Mensal')
+      .addMetaTag('viewport', 'width=device-width, initial-scale=1')
+      .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+  }
+
+  // Página principal
+  return HtmlService.createHtmlOutputFromFile('PAGINA')
+    .setTitle('Sistema de Saúde - Conceição')
+    .addMetaTag('viewport', 'width=device-width, initial-scale=1')
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+}
+
+
+
+// --- LOGIN ---
+function validarLogin(usuario, senha) {
+  const userLimpo = usuario ? usuario.toString().toLowerCase().trim() : "";
+  const senhaLimpa = senha ? senha.toString().trim() : "";
+  return (USUARIOS_PERMITIDOS[userLimpo] && USUARIOS_PERMITIDOS[userLimpo] === senhaLimpa);
+}
+
+function buscarDadosRelatorioJesus(mesReferencia) {
+
+  if (!/^\d{2}\/\d{4}$/.test(mesReferencia)) {
+    throw new Error("Formato inválido. Use MM/AAAA.");
+  }
+
+  const ss = SpreadsheetApp.openById("1lVo6qu0m-Pw-Cph7prFeuD3fEAMa7LYD2InzKPKNKnE");
+  const relatorio = ss.getSheetByName("RELATORIO");
+  if (!relatorio) throw new Error("Aba RELATORIO não encontrada.");
+
+  const rotasPermitidas = [
+    "CONCEIÇÃO/PALMAS",
+    "PALMAS/CONCEIÇÃO",
+    "CONCEIÇÃO/PORTO NACIONAL",
+    "PORTO NACIONAL/CONCEIÇÃO"
+  ];
+
+  const ultimaLinha = relatorio.getLastRow();
+  if (ultimaLinha < 7) return [];
+
+  // 🔹 A até P (16 colunas)
+  const dados = relatorio
+    .getRange(7, 1, ultimaLinha - 6, 16)
+    .getDisplayValues();
+
+  // 🔹 FILTRO PELO MÊS (COLUNA 15 = índice 14)
+  const filtrados = dados.filter(l => {
+    const mesColuna = String(l[14]).trim(); // mm/yyyy
+    const rota = String(l[10]).trim();
+    return mesColuna === mesReferencia && rotasPermitidas.includes(rota);
+  });
+
+  // 🔹 ORDENA POR DATA
+  filtrados.sort((a, b) => {
+    const dA = new Date(a[1].split("/").reverse().join("-"));
+    const dB = new Date(b[1].split("/").reverse().join("-"));
+    return dA - dB;
+  });
+
+  // 🔹 RETORNO 100% IGUAL AO CABEÇALHO
+  return filtrados.map((l, i) => ({
+    num: i + 1,        // Nº
+    data: l[1],       // Data
+    nome: l[2],       // Nome
+    cpf: l[3],        // CPF
+    acomp: l[4],      // Acomp
+    nomeA1: l[5],     // Nome acomp 1
+    cpfA1: l[6],      // CPF acomp 1
+    nomeA2: l[7],     // Nome acomp 2
+    cpfA2: l[8],      // CPF acomp 2
+    motivo: l[9],     // Motivo
+    destino: l[10],   // Destino
+    hora: l[11],      // Hora
+    obs: l[12],       // Obs (Tipo)
+    obs2: l[13],      // Obs2
+    vazio: l[14],     // Vazio (mm/yyyy)
+    resp: l[15]       // Resp
+  }));
+}
+
+
+
+
+// --- BUSCA NA BASE (AGENDAMENTO) ---
+function buscarPacientes(usuario, senha) {
+  if (!validarLogin(usuario, senha)) throw new Error("Acesso Negado.");
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const abaBase = ss.getSheetByName("BASE");
+  if (!abaBase || abaBase.getLastRow() < 2) return [];
+  const dados = abaBase.getRange(2, 2, abaBase.getLastRow() - 1, 10).getDisplayValues();
+  return dados.map(r => ({
+    nome: r[0], cpf: r[1], nasc: r[2], idade: r[3], endereco: r[4], 
+    numero: r[5], bairro: r[6], cep: r[7], telefone: r[8], sexo: r[9]
+  }));
+}
+
+// --- SALVAR NOVO PACIENTE ---
+function salvarNovoPaciente(dados) {
+  if (!validarLogin(dados.usuario, dados.senha)) throw new Error("Sessão expirada.");
+  const lock = LockService.getScriptLock();
+  try { lock.waitLock(10000); } catch (e) { throw new Error("Servidor ocupado."); }
+
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const abaBase = ss.getSheetByName("BASE");
+  if (!abaBase) { lock.releaseLock(); throw new Error("Erro: Aba BASE não encontrada."); }
+
+  if (!dados.nome || !dados.cpf || !dados.nasc || !dados.sexo || !dados.endereco || !dados.bairro) {
+    lock.releaseLock(); throw new Error("Todos os campos são obrigatórios!");
+  }
+
+  // Verifica duplicidade antes de salvar
+  const dadosExistentes = abaBase.getRange(2, 3, abaBase.getLastRow(), 1).getValues().flat(); // Coluna C (CPF)
+  const cpfLimpo = dados.cpf.replace(/\D/g, "");
+  const existe = dadosExistentes.some(c => c.toString().replace(/\D/g, "") === cpfLimpo);
+  
+  if (existe) {
+     lock.releaseLock(); 
+     throw new Error("PACIENTE JÁ CADASTRADO COM ESSE CPF.");
+  }
+
+  const novaLinha = [
+    dados.nome.toUpperCase(), dados.cpf, dados.nasc, dados.idade,
+    dados.endereco.toUpperCase(), "S/N", dados.bairro.toUpperCase(),
+    dados.cep, dados.telefone, dados.sexo
+  ];
+  abaBase.appendRow(["", ...novaLinha]);
+  lock.releaseLock();
+  return "Paciente cadastrado com sucesso!";
+}
+
+// --- EXECUTAR CADASTRO VIAGEM ---
+const NOMES_AGENDAMENTO = ["GLEICYANE", "FERNANDO", "ALSIONY"];
+
+function executarCadastroWeb(dadosWeb) { return processarGravacao(dadosWeb); }
+
+function processarGravacao(dados) {
+  const lock = LockService.getScriptLock();
+  try { lock.waitLock(10000); } catch (e) { throw new Error("Sistema ocupado."); }
+
+  const ss = SpreadsheetApp.getActive();
+  const relatorio = ss.getSheetByName("RELATORIO");
+  
+  let dataFormatada = dados.data;
+  if (dados.data && dados.data.includes('-')) {
+    const p = dados.data.split('-');
+    if (p.length === 3) dataFormatada = `${p[2]}/${p[1]}/${p[0]}`;
+  }
+
+  if (!dados.nome) throw new Error("O campo NOME é obrigatório!");
+  if (dados.agendadoPor && !NOMES_AGENDAMENTO.includes(dados.agendadoPor)) throw new Error(`Agendado por inválido.`);
+
+  const mapaAbas = {
+    "CONCEIÇÃO/PALMAS": "PALMAS", "CONCEIÇÃO/PALMAS - CARRO": "PALMAS",
+    "PALMAS/CONCEIÇÃO": "PALMAS", "PALMAS/CONCEIÇÃO - CARRO": "PALMAS",
+    "CONCEIÇÃO/PORTO NACIONAL": "PORTO NACIONAL", "CONCEIÇÃO/PORTO NACIONAL - CARRO": "PORTO NACIONAL",
+    "PORTO NACIONAL/CONCEIÇÃO": "PORTO NACIONAL", "PORTO NACIONAL/CONCEIÇÃO - CARRO": "PORTO NACIONAL",
+    "CONCEIÇÃO/ARRAIAS": "ARRAIAS", "ARRAIAS/CONCEIÇÃO": "ARRAIAS",
+    "CONCEIÇÃO/DIANÓPOLIS": "DIANÓPOLIS", "DIANÓPOLIS/CONCEIÇÃO": "DIANÓPOLIS",
+    "CONCEIÇÃO/CAMPOS BELOS": "CAMPOS BELOS", "CONCEIÇÃO/GURUPI": "GURUPI"
+  };
+
+  const abaDestinoNome = mapaAbas[dados.destino];
+  if (!abaDestinoNome) throw new Error(`Destino inválido.`);
+  const abaDestino = ss.getSheetByName(abaDestinoNome);
+  
+  if (!abaDestino) { lock.releaseLock(); return "Erro: Aba de destino não encontrada."; }
+
+  // Lógica de blocos
+  const LINHA_INICIAL_CPF = 17; const TAMANHO_DO_BLOCO = 14;
+  const dadosColunaB = abaDestino.getRange(LINHA_INICIAL_CPF, 2, Math.max(abaDestino.getLastRow(), LINHA_INICIAL_CPF) - LINHA_INICIAL_CPF + 20).getValues();
+  let indexBloco = 0;
+  while (dadosColunaB[indexBloco] && dadosColunaB[indexBloco][0] !== "") { indexBloco += TAMANHO_DO_BLOCO; }
+  let linhaAlvo = LINHA_INICIAL_CPF + indexBloco;
+
+  const colarPessoa = (linha, cpf, nome, sexo, dtNasc, endereco, bairro, telefone) => {
+    if (linha > abaDestino.getLastRow()) {
+        const linhaModelo = LINHA_INICIAL_CPF - 2;
+        abaDestino.getRange(linhaModelo, 1, TAMANHO_DO_BLOCO, 12).copyTo(abaDestino.getRange(linha - 2, 1));
+    }
+    abaDestino.getRange(linha, 2).setNumberFormat("@").setValue(cpf);
+    abaDestino.getRange(linha, 4).setValue(nome);
+    abaDestino.getRange(linha, 10).setValue(sexo); 
+    abaDestino.getRange(linha + 3, 2).setValue(dtNasc);
+    abaDestino.getRange(linha + 6, 2).setValue(endereco);
+    abaDestino.getRange(linha + 6, 6).setValue(bairro);
+    abaDestino.getRange(linha + 6, 8).setValue(telefone); 
+    abaDestino.getRange(linha + 10, 2).setValue(dataFormatada);
+  };
+
+  // 1. Cola PACIENTE PRINCIPAL
+  colarPessoa(linhaAlvo, dados.cpf, dados.nome, dados.sexo, dados.dtNasc, dados.endereco, dados.bairro, dados.telefone);
+  
+  // 2. Cola ACOMPANHANTE 1 (CORRIGIDO)
+  if (dados.nomeA1) { 
+      linhaAlvo += TAMANHO_DO_BLOCO; 
+      let sA1 = dados.sexoA1 || ""; 
+      let tA1 = dados.telA1 || dados.telefone; 
+      colarPessoa(linhaAlvo, dados.cpfA1, dados.nomeA1, sA1, dados.nascA1, dados.endA1, dados.bairA1, tA1); 
+  }
+  
+  // 3. Cola ACOMPANHANTE 2 (CORRIGIDO)
+  if (dados.nomeA2) { 
+      linhaAlvo += TAMANHO_DO_BLOCO; 
+      let sA2 = dados.sexoA2 || "";
+      let tA2 = dados.telA2 || dados.telefone;
+      colarPessoa(linhaAlvo, dados.cpfA2, dados.nomeA2, sA2, dados.nascA2, dados.endA2, dados.bairA2, tA2); 
+  }
+
+  // Relatório
+  const ultimaLinhaRel = relatorio.getRange(relatorio.getMaxRows(), 1).getNextDataCell(SpreadsheetApp.Direction.UP).getRow();
+  let linhaDestinoRel = ultimaLinhaRel < 6 ? 6 : ultimaLinhaRel + 1;
+  let proximoNumero = 1;
+  const valorAnterior = relatorio.getRange(ultimaLinhaRel, 1).getValue();
+  if (!isNaN(valorAnterior) && typeof valorAnterior === 'number') proximoNumero = valorAnterior + 1;
+
+  const linhaRel = [
+    proximoNumero, dataFormatada, dados.nome, dados.cpf, dados.temAcomp, 
+    dados.nomeA1||"", dados.cpfA1||"", dados.nomeA2||"", dados.cpfA2||"", 
+    dados.motivo, dados.destino, dados.hora, dados.obs, dados.obsA2||"", "", dados.agendadoPor
+  ];
+  
+  relatorio.getRange(linhaDestinoRel, 1, 1, 16).setNumberFormat("@").setValues([linhaRel]);
+  relatorio.getRange(linhaDestinoRel, 15).setFormula(`=IF(B${linhaDestinoRel}="";"";TEXT(B${linhaDestinoRel};"mm/yyyy"))`);
+
+  lock.releaseLock();
+  return "Viagem agendada com sucesso!";
+}
+
+// --- FUNÇÃO PARA O RELATÓRIO (COM CAMPOS EXTRAS E ORDENAÇÃO) ---
+function buscarDadosRelatorio() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const abaRel = ss.getSheetByName("RELATORIO");
+  
+  if (!abaRel) throw new Error("Aba 'RELATORIO' não encontrada.");
+  const ult = abaRel.getLastRow();
+  if (ult < 6) return [];
+  
+  // Pega dados da Coluna A até P (16 colunas)
+  const dados = abaRel.getRange(7, 1, ult - 6, 16).getDisplayValues();
+  
+  /* ÍNDICES (Baseado na gravação):
+    0: ID, 1: Data, 2: Nome, 3: CPF, 4: Tem Acomp, 5: Nome A1, 
+    6: CPF A1, 7: Nome A2, 8: CPF A2, 9: Motivo, 10: Destino, 
+    11: Hora, 12: Obs (Tipo), 13: Obs A2, 14: Vazio, 15: Resp
+  */
+
+  const resultado = dados.map(r => {
+    return {
+      id: r[0],
+      data: r[1],
+      nome: r[2],
+      cpf: r[3],
+      acomp: r[4],      // Novo: Sim/Não
+      nomeA1: r[5],     // Novo: Nome Acomp 1
+      nomeA2: r[7],     // Novo: Nome Acomp 2
+      motivo: r[9],
+      destino: r[10],
+      hora: r[11],
+      obs: r[12],       // Novo: Tipo Viagem
+      obsA2: r[13],     // Novo: Tipo Viagem Acomp 2
+      resp: r[15]
+    };
+  });
+
+  // Ordenação: Data (antiga->nova) e Hora
+  resultado.sort((a, b) => {
+    const partesA = a.data.split('/');
+    const partesB = b.data.split('/');
+    if (partesA.length !== 3) return 1;
+    if (partesB.length !== 3) return -1;
+    
+    const dataA = new Date(partesA[2], partesA[1]-1, partesA[0]);
+    const dataB = new Date(partesB[2], partesB[1]-1, partesB[0]);
+
+    if (dataA < dataB) return -1;
+    if (dataA > dataB) return 1;
+    if (a.hora < b.hora) return -1;
+    if (a.hora > b.hora) return 1;
+    return 0;
+  });
+
+  return resultado;
+}
+
+// --- [NOVO] BUSCA LISTA DE NOMES PARA O AUTOCOMPLETE ---
+function getListaNomesBase() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const aba = ss.getSheetByName("BASE");
+  if (!aba) return [];
+  // Pega da linha 2 até o fim, coluna B (Nome)
+  return aba.getRange(2, 2, aba.getLastRow() - 1, 1).getValues().flat().filter(String);
+}
+
+// --- FUNÇÃO DE EXCLUSÃO (PACIENTE + ACOMPANHANTES) ---
+function excluirRegistroViagem(nome, dataInput) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const abaRel = ss.getSheetByName("RELATORIO");
+  let logMensagens = [];
+  let registrosApagados = 0;
+  
+  // 1. Tratamento da Data (Input vs Objeto)
+  const extrairData = (d) => {
+     if (!d) return null;
+     let dia, mes, ano;
+     if (d.includes("-")) { // Formato yyyy-mm-dd
+        const partes = d.split("-");
+        ano = parseInt(partes[0], 10); mes = parseInt(partes[1], 10); dia = parseInt(partes[2], 10);
+     } else if (d.includes("/")) { // Formato dd/mm/yyyy
+        const partes = d.split("/");
+        dia = parseInt(partes[0], 10); mes = parseInt(partes[1], 10); ano = parseInt(partes[2], 10);
+     } else { return null; }
+     return { dia, mes, ano };
+  };
+
+  const dataAlvo = extrairData(dataInput);
+  if (!dataAlvo) throw new Error("Data inválida.");
+
+  // 2. BUSCA NO RELATÓRIO (Para pegar os nomes dos acompanhantes ANTES de apagar)
+  const dadosRel = abaRel.getDataRange().getValues();
+  let nomeA1 = "";
+  let nomeA2 = "";
+  let encontrouRelatorio = false;
+
+  // Loop reverso para apagar
+  for (let i = dadosRel.length - 1; i >= 5; i--) { 
+    const nomePlanilha = String(dadosRel[i][2]).toUpperCase().trim();
+    if (nomePlanilha !== nome.toUpperCase().trim()) continue;
+
+    // Verifica Data
+    const celulaData = dadosRel[i][1]; 
+    let dF=0, mF=0, aF=0;
+    if (celulaData instanceof Date) {
+       dF = celulaData.getDate(); mF = celulaData.getMonth() + 1; aF = celulaData.getFullYear();
+    } else {
+       const partes = String(celulaData).split("/");
+       if (partes.length === 3) { dF=parseInt(partes[0]); mF=parseInt(partes[1]); aF=parseInt(partes[2]); if(aF<100) aF+=2000; }
+    }
+
+    if (dF === dataAlvo.dia && mF === dataAlvo.mes && (aF === dataAlvo.ano || aF === dataAlvo.ano - 2000)) {
+       // ACHOU! Salva os acompanhantes antes de deletar
+       nomeA1 = String(dadosRel[i][5]).trim(); // Coluna F (Acomp 1)
+       nomeA2 = String(dadosRel[i][7]).trim(); // Coluna H (Acomp 2)
+       
+       abaRel.deleteRow(i + 1);
+       registrosApagados++;
+       encontrouRelatorio = true;
+       logMensagens.push("Removido do Relatório.");
+       break; // Apaga apenas o registro específico e sai para processar as cidades
+    }
+  }
+
+  if (!encontrouRelatorio) {
+      throw new Error("Registro não encontrado no Relatório para esta data.");
+  }
+
+  // 3. DELETAR NAS ABAS DE CIDADE (Bloco de 14 linhas)
+  const abasCidades = [
+    "PALMAS", "PORTO NACIONAL", "ARRAIAS", "DIANÓPOLIS", 
+    "CAMPOS BELOS", "GURUPI"
+  ];
+
+  // Função interna para apagar um bloco específico de qualquer pessoa
+  const apagarBlocoPessoa = (aba, nomePessoa) => {
+      if (!nomePessoa) return;
+      const ultLinha = aba.getLastRow();
+      if (ultLinha < 17) return;
+
+      const rangeNomes = aba.getRange(17, 4, ultLinha - 16, 1).getValues();
+
+      for (let k = rangeNomes.length - 1; k >= 0; k--) {
+         if (String(rangeNomes[k][0]).toUpperCase().trim() === nomePessoa.toUpperCase().trim()) {
+            let linhaNome = 17 + k;
+            
+            // Confere Data
+            let celulaDt = aba.getRange(linhaNome + 10, 2).getValue();
+            let dF=0, mF=0, aF=0;
+            if (celulaDt instanceof Date) { dF=celulaDt.getDate(); mF=celulaDt.getMonth()+1; aF=celulaDt.getFullYear(); }
+            else { let p = String(celulaDt).split("/"); if(p.length===3) { dF=parseInt(p[0]); mF=parseInt(p[1]); aF=parseInt(p[2]); } }
+
+            if (dF === dataAlvo.dia && mF === dataAlvo.mes && (aF === dataAlvo.ano || aF === dataAlvo.ano - 2000)) {
+                try {
+                   aba.deleteRows(linhaNome - 2, 14); // Deleta o bloco inteiro
+                   logMensagens.push(`Bloco de ${nomePessoa} apagado em ${aba.getName()}.`);
+                } catch (e) {}
+                // Não damos break aqui pois teoricamente pode haver duplicidade e queremos limpar tudo
+            }
+         }
+      }
+  };
+
+  // Executa a varredura em todas as cidades
+  for (let cidade of abasCidades) {
+      const aba = ss.getSheetByName(cidade);
+      if (!aba) continue;
+
+      // 1. Apaga o Paciente Principal
+      apagarBlocoPessoa(aba, nome);
+
+      // 2. Apaga Acompanhante 1 (se existir)
+      if (nomeA1 && nomeA1.length > 2) {
+          apagarBlocoPessoa(aba, nomeA1);
+      }
+
+      // 3. Apaga Acompanhante 2 (se existir)
+      if (nomeA2 && nomeA2.length > 2) {
+          apagarBlocoPessoa(aba, nomeA2);
+      }
+  }
+
+  return `✅ Paciente e Acompanhantes excluídos com sucesso!`;
+}
+
+// --- FUNÇÃO MESTRE DE EDIÇÃO (CORRIGIDA: OBS ACOMP 2) ---
+function editarRegistroViagem(dados) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const abaRel = ss.getSheetByName("RELATORIO");
+  const abaBase = ss.getSheetByName("BASE");
+  
+  console.log("Iniciando Edição para:", dados.nome);
+
+  // --- 1. PREPARAÇÃO ---
+  const nomeBuscado = dados.nome.toUpperCase().trim();
+  const responsavel = dados.responsavel;
+  const novoHorarioInput = dados.novoHorario;
+
+  const extrairDataInput = (d) => {
+     if (!d) return null;
+     let dia, mes, ano;
+     if (d.includes("-")) { 
+        const partes = d.split("-");
+        ano = parseInt(partes[0], 10); mes = parseInt(partes[1], 10); dia = parseInt(partes[2], 10);
+     } else if (d.includes("/")) { 
+        const partes = d.split("/");
+        dia = parseInt(partes[0], 10); mes = parseInt(partes[1], 10); ano = parseInt(partes[2], 10);
+     } else { return null; }
+     return { dia: dia, mes: mes, ano: ano, original: `${("0" + dia).slice(-2)}/${("0" + mes).slice(-2)}/${ano}` };
+  };
+
+  const descobrirAbaInterna = (destino) => {
+      if (!destino) return null;
+      const d = destino.toUpperCase().trim();
+      const mapa = {
+        "CONCEIÇÃO/PALMAS": "PALMAS", "CONCEIÇÃO/PALMAS - CARRO": "PALMAS",
+        "PALMAS/CONCEIÇÃO": "PALMAS", "PALMAS/CONCEIÇÃO - CARRO": "PALMAS",
+        "CONCEIÇÃO/PORTO NACIONAL": "PORTO NACIONAL", "CONCEIÇÃO/PORTO NACIONAL - CARRO": "PORTO NACIONAL",
+        "PORTO NACIONAL/CONCEIÇÃO": "PORTO NACIONAL", "PORTO NACIONAL/CONCEIÇÃO - CARRO": "PORTO NACIONAL",
+        "CONCEIÇÃO/ARRAIAS": "ARRAIAS", "ARRAIAS/CONCEIÇÃO": "ARRAIAS",
+        "CONCEIÇÃO/DIANÓPOLIS": "DIANÓPOLIS", "DIANÓPOLIS/CONCEIÇÃO": "DIANÓPOLIS",
+        "CONCEIÇÃO/CAMPOS BELOS": "CAMPOS BELOS", "CONCEIÇÃO/GURUPI": "GURUPI"
+      };
+      if (mapa[d]) return mapa[d];
+      if (d.includes("PALMAS")) return "PALMAS";
+      if (d.includes("PORTO")) return "PORTO NACIONAL";
+      if (d.includes("ARRAIAS")) return "ARRAIAS";
+      if (d.includes("DIANÓPOLIS")) return "DIANÓPOLIS";
+      if (d.includes("CAMPOS BELOS")) return "CAMPOS BELOS";
+      if (d.includes("GURUPI")) return "GURUPI";
+      return null;
+  };
+
+  const resgatarDadosPessoa = (nomePessoa, abaOrigem, dataAlvoObj) => {
+      let resultado = { sexo: "", nasc: "", endereco: "", bairro: "", telefone: "" };
+      if (!nomePessoa || !abaOrigem) return resultado;
+      
+      const nomeUpper = nomePessoa.toUpperCase().trim();
+      const ult = abaOrigem.getLastRow();
+      if (ult < 17) return resultado;
+
+      const rangeNomes = abaOrigem.getRange(17, 4, ult-16, 1).getValues(); 
+      for(let k = rangeNomes.length - 1; k >= 0; k--){
+          if(String(rangeNomes[k][0]).toUpperCase().trim() === nomeUpper) {
+              let linhaNome = 17 + k;
+              let celulaDt = abaOrigem.getRange(linhaNome+10, 2).getValue();
+              let dF=0, mF=0, aF=0;
+              if(celulaDt instanceof Date) { dF=celulaDt.getDate(); mF=celulaDt.getMonth()+1; aF=celulaDt.getFullYear(); }
+              else { let p = String(celulaDt).split("/"); if(p.length===3) { dF=parseInt(p[0]); mF=parseInt(p[1]); aF=parseInt(p[2]); } }
+
+              if (dF === dataAlvoObj.dia && mF === dataAlvoObj.mes && (aF === dataAlvoObj.ano || aF === dataAlvoObj.ano-2000)) {
+                  resultado.sexo = abaOrigem.getRange(linhaNome, 10).getValue();
+                  resultado.nasc = abaOrigem.getRange(linhaNome + 3, 2).getValue();
+                  resultado.endereco = abaOrigem.getRange(linhaNome + 6, 2).getValue();
+                  resultado.bairro = abaOrigem.getRange(linhaNome + 6, 6).getValue();
+                  resultado.telefone = abaOrigem.getRange(linhaNome + 6, 8).getValue();
+                  return resultado;
+              }
+          }
+      }
+      return resultado;
+  };
+
+  const dataAntigaObj = extrairDataInput(dados.dataAntiga);
+  const dataNovaObj = extrairDataInput(dados.dataNova);
+  
+  if (!dataAntigaObj || !dataNovaObj) throw new Error("Data inválida.");
+
+  // --- 2. LOCALIZAR NO RELATÓRIO ---
+  const dadosRel = abaRel.getDataRange().getValues(); 
+  let linhaRel = -1;
+  let destinoAntigo = ""; let motivoAntigo = ""; let horaAntiga = "";
+  let cpfRelatorio = ""; 
+  let temAcompAntigo = "NÃO";
+  let nomeAcomp1Antigo = ""; let cpfAcomp1Antigo = "";
+  let nomeAcomp2Antigo = ""; let cpfAcomp2Antigo = "";
+  let obsAcomp2Antigo = ""; 
+
+  for (let i = dadosRel.length - 1; i >= 1; i--) {
+    const nomePlanilha = String(dadosRel[i][2]).toUpperCase().trim(); 
+    if (nomePlanilha !== nomeBuscado) continue;
+
+    const celulaData = dadosRel[i][1]; 
+    let diaP = 0, mesP = 0, anoP = 0;
+    if (celulaData instanceof Date) {
+       diaP = celulaData.getDate(); mesP = celulaData.getMonth() + 1; anoP = celulaData.getFullYear();
+    } else {
+       const partes = String(celulaData).split("/");
+       if (partes.length === 3) {
+          diaP = parseInt(partes[0], 10); mesP = parseInt(partes[1], 10); anoP = parseInt(partes[2], 10);
+          if (anoP < 100) anoP += 2000; 
+       }
+    }
+
+    if (diaP === dataAntigaObj.dia && mesP === dataAntigaObj.mes && (anoP === dataAntigaObj.ano || anoP === dataAntigaObj.ano - 2000)) {
+       linhaRel = i + 1; 
+       cpfRelatorio = String(dadosRel[i][3]);        
+       temAcompAntigo = String(dadosRel[i][4]);   
+       nomeAcomp1Antigo = String(dadosRel[i][5]); cpfAcomp1Antigo = String(dadosRel[i][6]);  
+       nomeAcomp2Antigo = String(dadosRel[i][7]); cpfAcomp2Antigo = String(dadosRel[i][8]);  
+       motivoAntigo = String(dadosRel[i][9]);     
+       destinoAntigo = String(dadosRel[i][10]);   
+       horaAntiga = String(dadosRel[i][11]);
+       
+       obsAcomp2Antigo = String(dadosRel[i][13]); 
+       
+       break;
+    }
+  }
+
+  if (linhaRel === -1) throw new Error(`Registro não encontrado!`);
+
+  const horaFinal = novoHorarioInput ? novoHorarioInput : horaAntiga;
+  const destinoNovoNorm = dados.novoDestino.trim();
+  const destinoAntigoNorm = destinoAntigo.trim();
+  const mudouDestino = (destinoNovoNorm !== destinoAntigoNorm);
+  
+  const obsAcomp2Final = dados.novaObsA2 ? dados.novaObsA2 : obsAcomp2Antigo;
+
+  // === CENÁRIO A: MUDOU O DESTINO ===
+  if (mudouDestino) {
+      
+      let dadosPrincipal = { sexo: "", nasc: "", endereco: "", bairro: "", telefone: "" };
+      let dadosA1 = { sexo: "", nasc: "", endereco: "", bairro: "", telefone: "" };
+      let dadosA2 = { sexo: "", nasc: "", endereco: "", bairro: "", telefone: "" };
+
+      const nomeAbaOrigem = descobrirAbaInterna(destinoAntigoNorm);
+      if (nomeAbaOrigem) {
+          const abaOrigem = ss.getSheetByName(nomeAbaOrigem);
+          if (abaOrigem) {
+              dadosPrincipal = resgatarDadosPessoa(nomeBuscado, abaOrigem, dataAntigaObj);
+              if(nomeAcomp1Antigo) dadosA1 = resgatarDadosPessoa(nomeAcomp1Antigo, abaOrigem, dataAntigaObj);
+              if(nomeAcomp2Antigo) dadosA2 = resgatarDadosPessoa(nomeAcomp2Antigo, abaOrigem, dataAntigaObj);
+          }
+      }
+
+      const dadosBase = abaBase.getDataRange().getDisplayValues();
+      let pacienteBase = null;
+      for(let i=1; i<dadosBase.length; i++) {
+         if(dadosBase[i][0].toString().toUpperCase().trim() === nomeBuscado) { 
+             pacienteBase = { cpf: dadosBase[i][1], nasc: dadosBase[i][2], endereco: dadosBase[i][4], bairro: dadosBase[i][6], telefone: dadosBase[i][8], sexo: dadosBase[i][9] };
+             break;
+         }
+      }
+      
+      let cpfFinal = pacienteBase ? pacienteBase.cpf : (cpfRelatorio || "VERIFICAR");
+      let sexoFinal = pacienteBase ? pacienteBase.sexo : dadosPrincipal.sexo;
+      let nascFinal = pacienteBase ? pacienteBase.nasc : dadosPrincipal.nasc;
+      let endFinal = pacienteBase ? pacienteBase.endereco : (dadosPrincipal.endereco || "VERIFICAR CADASTRO");
+      let bairFinal = pacienteBase ? pacienteBase.bairro : dadosPrincipal.bairro;
+      let telFinal = pacienteBase ? pacienteBase.telefone : dadosPrincipal.telefone;
+
+      const novoPacote = {
+         data: dados.dataNova, 
+         nome: nomeBuscado, cpf: cpfFinal, sexo: sexoFinal, dtNasc: nascFinal,
+         endereco: endFinal, bairro: bairFinal, telefone: telFinal,
+         destino: destinoNovoNorm, motivo: dados.novoMotivo || motivoAntigo, 
+         obs: dados.novaObs,
+         hora: horaFinal, agendadoPor: responsavel,
+         
+         temAcomp: temAcompAntigo, 
+         nomeA1: nomeAcomp1Antigo, cpfA1: cpfAcomp1Antigo,
+         sexoA1: dadosA1.sexo, nascA1: dadosA1.nasc, endA1: dadosA1.endereco, bairA1: dadosA1.bairro,
+
+         nomeA2: nomeAcomp2Antigo, cpfA2: cpfAcomp2Antigo,
+         sexoA2: dadosA2.sexo, nascA2: dadosA2.nasc, endA2: dadosA2.endereco, bairA2: dadosA2.bairro,
+         
+         obsA2: obsAcomp2Final 
+      };
+
+      try { processarGravacao(novoPacote); } 
+      catch (e) { throw new Error("Erro ao criar novo registro: " + e.message); }
+
+      abaRel.deleteRow(linhaRel);
+      
+      if (nomeAbaOrigem) {
+         const abaDest = ss.getSheetByName(nomeAbaOrigem);
+         if (abaDest) {
+             const deletarBloco = (nm) => {
+                 if(!nm) return;
+                 const rng = abaDest.getRange(17, 4, abaDest.getLastRow()-16, 1).getValues();
+                 for(let k=rng.length-1; k>=0; k--){
+                     if(String(rng[k][0]).toUpperCase().trim() === nm.toUpperCase().trim()){
+                         let l = 17+k;
+                         let cDt = abaDest.getRange(l+10, 2).getValue();
+                         let d=0,m=0,a=0;
+                         if(cDt instanceof Date){d=cDt.getDate();m=cDt.getMonth()+1;a=cDt.getFullYear();}
+                         else{let p=String(cDt).split("/");if(p.length===3){d=parseInt(p[0]);m=parseInt(p[1]);a=parseInt(p[2]);}}
+                         if (d === dataAntigaObj.dia && m === dataAntigaObj.mes && (a === dataAntigaObj.ano || a === dataAntigaObj.ano-2000)) {
+                             try{abaDest.deleteRows(l-2, 14);}catch(e){}
+                         }
+                     }
+                 }
+             };
+             deletarBloco(nomeBuscado);
+             deletarBloco(nomeAcomp1Antigo);
+             deletarBloco(nomeAcomp2Antigo);
+         }
+      }
+      return "🔄 Transferido (com acomp.) para " + destinoNovoNorm;
+  }
+
+  // === CENÁRIO B: MESMO DESTINO ===
+  else {
+      abaRel.getRange(linhaRel, 2).setValue(dataNovaObj.original); 
+      abaRel.getRange(linhaRel, 11).setValue(destinoNovoNorm);     
+      abaRel.getRange(linhaRel, 12).setValue(horaFinal);           
+      abaRel.getRange(linhaRel, 16).setValue(responsavel);         
+      if (dados.novoMotivo) abaRel.getRange(linhaRel, 10).setValue(dados.novoMotivo); 
+      if (dados.novaObs) abaRel.getRange(linhaRel, 13).setValue(dados.novaObs);       
+      
+      if (obsAcomp2Final) abaRel.getRange(linhaRel, 14).setValue(obsAcomp2Final);
+
+      const dataMudou = (dataAntigaObj.dia !== dataNovaObj.dia || dataAntigaObj.mes !== dataNovaObj.mes || dataAntigaObj.ano !== dataNovaObj.ano);
+      
+      if (dataMudou) {
+          const nomeAba = descobrirAbaInterna(destinoAntigoNorm);
+          if (nomeAba) {
+             const abaDest = ss.getSheetByName(nomeAba);
+             if (abaDest) {
+                 const atualizarBloco = (nm) => {
+                     if(!nm) return;
+                     const rng = abaDest.getRange(17, 4, abaDest.getLastRow()-16, 1).getValues();
+                     for(let k=rng.length-1; k>=0; k--){
+                         if(String(rng[k][0]).toUpperCase().trim() === nm.toUpperCase().trim()){
+                             let l = 17+k;
+                             let cDt = abaDest.getRange(l+10, 2);
+                             let vDt = cDt.getValue();
+                             let d=0,m=0,a=0;
+                             if(vDt instanceof Date){d=vDt.getDate();m=vDt.getMonth()+1;a=vDt.getFullYear();}
+                             else{let p=String(vDt).split("/");if(p.length===3){d=parseInt(p[0]);m=parseInt(p[1]);a=parseInt(p[2]);}}
+                             if (d === dataAntigaObj.dia && m === dataAntigaObj.mes && (a === dataAntigaObj.ano || a === dataAntigaObj.ano-2000)) {
+                                 cDt.setValue(dataNovaObj.original);
+                             }
+                         }
+                     }
+                 };
+                 atualizarBloco(nomeBuscado);
+                 atualizarBloco(nomeAcomp1Antigo);
+                 atualizarBloco(nomeAcomp2Antigo);
+             }
+          }
+      }
+      return "✅ Atualizado (com acomp.) para " + dataNovaObj.original + " às " + horaFinal;
+  }
+}
+
+function buscarResumoMensal(mesAno) {
+  if (!/^\d{2}\/\d{4}$/.test(mesAno)) {
+    throw new Error("Formato inválido. Use MM/YYYY");
+  }
+
+  const ss = SpreadsheetApp.openById("1lVo6qu0m-Pw-Cph7prFeuD3fEAMa7LYD2InzKPKNKnE");
+  const aba = ss.getSheetByName("RELATORIO");
+  if (!aba) throw new Error("Aba RELATORIO não encontrada");
+
+  // Definimos as rotas
+  const rotasPermitidas = [
+    "CONCEIÇÃO/PALMAS",
+    "PALMAS/CONCEIÇÃO",
+    "CONCEIÇÃO/PORTO NACIONAL",
+    "PORTO NACIONAL/CONCEIÇÃO"
+  ];
+
+  // Pega os dados a partir da linha 7
+  const dados = aba.getRange(7, 1, aba.getLastRow() - 6, 16).getDisplayValues();
+
+  const resumo = [
+    { num: 1, passagem: "IDA E VOLTA C/ ACOMPANHANTE", pacientes: 0, acompanhantes: 0, total: 0 },
+    { num: 2, passagem: "IDA E VOLTA S/ ACOMPANHANTE", pacientes: 0, acompanhantes: 0, total: 0 },
+    { num: 3, passagem: "SÓ IDA COM ACOMPANHANTE", pacientes: 0, acompanhantes: 0, total: 0 },
+    { num: 4, passagem: "SÓ IDA SEM ACOMPANHANTE", pacientes: 0, acompanhantes: 0, total: 0 },
+    { num: 5, passagem: "SÓ VOLTA C/ ACOMPANHANTE", pacientes: 0, acompanhantes: 0, total: 0 },
+    { num: 6, passagem: "SÓ VOLTA S/ ACOMPANHANTE", pacientes: 0, acompanhantes: 0, total: 0 }
+  ];
+
+  dados.forEach(l => {
+    // -----------------------------------------------------------
+    // 1. FILTRO DE ROTA 
+    // -----------------------------------------------------------
+    const rota = String(l[10]).trim();
+    if (!rotasPermitidas.includes(rota)) return; // Pula se a rota não for permitida
+
+    // -----------------------------------------------------------
+    // 2. FILTRO DE DATA
+    // -----------------------------------------------------------
+    const dataStr = l[1];
+    if (!dataStr) return;
+
+    let data; // <--- ERRO 1 CORRIGIDO: Tinha um "}" aqui que não devia
+    if (dataStr instanceof Date) {
+      data = dataStr;
+    } else {
+      const p = dataStr.split("/");
+      if (p.length !== 3) return;
+      data = new Date(p[2], p[1] - 1, p[0]);
+    }
+
+    const ref = Utilities.formatDate(data, Session.getScriptTimeZone(), "MM/yyyy");
+    if (ref !== mesAno) return; // Pula se não for o mês escolhido
+
+    // -----------------------------------------------------------
+    // 3. CONTAGEM E LÓGICA
+    // -----------------------------------------------------------
+    const tipo = (l[12] || "").toUpperCase().trim(); // Obs (Tipo)
+    // l[5] = Nome Acomp 1, l[7] = Nome Acomp 2
+    const acompQtd = (l[5] ? 1 : 0) + (l[7] ? 1 : 0);
+
+    let linha = null;
+    let viagensPaciente = 0;
+    let viagensAcomp = 0;
+    let multiplicador = 1;
+
+    if (tipo === "IDA E VOLTA") {
+      viagensPaciente = 1;
+      viagensAcomp = acompQtd;
+      multiplicador = 2; // ⚠️ Define que passagens são dobradas
+      linha = acompQtd > 0 ? resumo[0] : resumo[1];
+    } 
+    else if (tipo === "SÓ IDA") {
+      viagensPaciente = 1;
+      viagensAcomp = acompQtd;
+      linha = acompQtd > 0 ? resumo[2] : resumo[3];
+    } 
+    else if (tipo === "SÓ VOLTA") {
+      viagensPaciente = 1;
+      viagensAcomp = acompQtd;
+      linha = acompQtd > 0 ? resumo[4] : resumo[5];
+    }
+
+    if (linha) {
+      linha.pacientes += viagensPaciente;
+      linha.acompanhantes += viagensAcomp;
+      // <--- ERRO 2 CORRIGIDO: Adicionei o "(" antes de viagensPaciente
+      linha.total += (viagensPaciente + viagensAcomp) * multiplicador;
+    } // <--- ERRO 3 CORRIGIDO: Faltava fechar esse if
+    
+  });
+
+  return resumo;
+}
