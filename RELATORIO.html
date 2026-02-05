@@ -82,6 +82,7 @@
     .col-fixa { white-space: nowrap; width: 1%; }
     .col-acomp { text-align: center; white-space: nowrap; width: 1%; }
     .col-nome { min-width: 120px; max-width: 200px; word-wrap: break-word; }
+    .col-telefone { white-space: nowrap; min-width: 110px; }
     .col-destino { min-width: 100px; word-wrap: break-word; }
     .col-obs { min-width: 80px; font-size: 10px; color: #555; word-wrap: break-word; }
     .col-resp { white-space: nowrap; font-size: 10px; }
@@ -172,9 +173,6 @@
           <option value="IDA E VOLTA">IDA E VOLTA</option>
           <option value="SÓ IDA">SÓ IDA</option>
           <option value="SÓ VOLTA">SÓ VOLTA</option>
-          <option value="IDA E VOLTA/ACP 2">IDA E VOLTA/ACP 2</option>
-          <option value="SÓ IDA/ACP 2">SÓ IDA/ACP 2</option>
-          <option value="SÓ VOLTA/ACP 2">SÓ VOLTA/ACP 2</option>
       </select>
     </div>
 
@@ -261,13 +259,13 @@
     <table id="tabelaDados">
       <thead>
         <tr>
-          <th>Data</th><th>Hora</th><th>Nome</th><th>Destino</th><th>Motivo</th>
+          <th>Data</th><th>Hora</th><th>Nome</th><th>Telefone</th><th>Destino</th><th>Motivo</th>
           <th>Obs (Tipo)</th><th>Acomp?</th><th>Nome Acomp 1</th><th>Nome Acomp 2</th>
           <th>Obs 2</th><th>Resp.</th>
         </tr>
       </thead>
       <tbody id="tabelaCorpo">
-        <tr><td colspan="11" style="text-align:center; padding:30px;">Carregando...</td></tr>
+        <tr><td colspan="12" style="text-align:center; padding:30px;">Carregando...</td></tr>
       </tbody>
     </table>
   </div>
@@ -277,16 +275,23 @@
   let todosDados = [];
   let filtroAtivo = null;
   const CREDENCIAIS = { "alsiony": "cko170560", "fernando": "#Caramelo1006", "gleicyane": "cko170560" };
+  const TEMPO_SESSAO_MINUTOS = 240;
 
   window.onload = function() { verificarLogin(); };
 
   function verificarLogin() {
     const u = localStorage.getItem("sms_user");
     const p = localStorage.getItem("sms_pass");
-    if(u && p && CREDENCIAIS[u] === p) {
+    const t = localStorage.getItem("sms_time");
+    const agora = new Date().getTime();
+    const valido = u && p && CREDENCIAIS[u] === p && t && (agora - parseInt(t, 10)) / 1000 / 60 < TEMPO_SESSAO_MINUTOS;
+    if (valido) {
        document.getElementById("telaLogin").style.display = "none";
        document.getElementById("conteudo").style.display = "block";
        carregarDados();
+    } else {
+       document.getElementById("telaLogin").style.display = "flex";
+       document.getElementById("conteudo").style.display = "none";
     }
   }
 
@@ -296,6 +301,8 @@
     if (CREDENCIAIS[u] && CREDENCIAIS[u] === p) {
        localStorage.setItem("sms_user", u);
        localStorage.setItem("sms_pass", p);
+       localStorage.setItem("sms_time", new Date().getTime());
+       document.getElementById("msgErro").style.display = "none";
        verificarLogin();
     } else { document.getElementById("msgErro").style.display = "block"; }
   }
@@ -303,19 +310,22 @@
   function sair() { localStorage.clear(); location.reload(); }
 
   function carregarDados() {
+    const u = localStorage.getItem("sms_user");
+    const p = localStorage.getItem("sms_pass");
     google.script.run
       .withSuccessHandler(dados => { todosDados = dados; renderizarTabela(dados); })
-      .buscarDadosRelatorio();
+      .buscarDadosRelatorio(u, p);
   }
 
   function renderizarTabela(dados) {
      const tbody = document.getElementById("tabelaCorpo");
      document.getElementById("totalCount").innerText = `(${dados.length})`;
-     if (dados.length === 0) { tbody.innerHTML = `<tr><td colspan="11" style="text-align:center;">Nenhum registro encontrado.</td></tr>`; return; }
+     if (dados.length === 0) { tbody.innerHTML = `<tr><td colspan="12" style="text-align:center;">Nenhum registro encontrado.</td></tr>`; return; }
      let html = "";
      dados.forEach(d => {
        const temAcomp = (d.acomp === "SIM") ? '<span style="color:green; font-weight:bold;">SIM</span>' : '<span style="color:#ccc;">-</span>';
-       html += `<tr><td class="col-fixa">${d.data}</td><td class="col-fixa">${d.hora}</td><td class="col-nome texto-destaque">${d.nome}</td><td class="col-destino">${d.destino}</td><td class="col-destino">${d.motivo}</td><td class="col-obs">${d.obs || ''}</td><td class="col-acomp">${temAcomp}</td><td class="col-nome" style="font-size:10px;">${d.nomeA1 || '-'}</td><td class="col-nome" style="font-size:10px;">${d.nomeA2 || '-'}</td><td class="col-obs">${d.obsA2 || '-'}</td><td class="col-resp">${d.resp || ''}</td></tr>`;
+       const telefone = d.telefone || d.tel || d.celular || '-';
+       html += `<tr><td class="col-fixa">${d.data}</td><td class="col-fixa">${d.hora}</td><td class="col-nome texto-destaque">${d.nome}</td><td class="col-telefone">${telefone}</td><td class="col-destino">${d.destino}</td><td class="col-destino">${d.motivo}</td><td class="col-obs">${d.obs || ''}</td><td class="col-acomp">${temAcomp}</td><td class="col-nome" style="font-size:10px;">${d.nomeA1 || '-'}</td><td class="col-nome" style="font-size:10px;">${d.nomeA2 || '-'}</td><td class="col-obs">${d.obsA2 || '-'}</td><td class="col-resp">${d.resp || ''}</td></tr>`;
      });
      tbody.innerHTML = html;
   }
@@ -333,6 +343,8 @@
 
      if (datalist.options.length === 0) {
         input.disabled = true; input.placeholder = "Carregando lista...";
+        const u = localStorage.getItem("sms_user");
+        const p = localStorage.getItem("sms_pass");
         google.script.run.withSuccessHandler(nomes => {
             nomes.forEach(n => {
                 let opt = document.createElement('option');
@@ -340,7 +352,7 @@
                 datalist.appendChild(opt);
             });
             input.disabled = false; input.placeholder = "Digite o nome...";
-        }).getListaNomesBase();
+        }).getListaNomesBase(u, p);
      }
   }
 
@@ -375,12 +387,14 @@
      if (!confirm(`Confirmar exclusão de ${nome}?`)) return;
 
      btn.style.display = 'none'; status.innerText = "Processando..."; status.style.color = "blue";
+     const u = localStorage.getItem("sms_user");
+     const p = localStorage.getItem("sms_pass");
      
      google.script.run.withSuccessHandler(res => {
          status.innerText = res; status.style.color = "green"; carregarDados();
      }).withFailureHandler(e => {
          status.innerText = "Erro: " + e.message; status.style.color = "red"; btn.style.display = 'inline-block';
-     }).excluirRegistroViagem(nome, data);
+     }).excluirRegistroViagem(nome, data, u, p);
   }
 
   // --- LÓGICA DE EDIÇÃO ---
@@ -417,7 +431,7 @@
            status.innerText = "Erro: " + e.message; status.style.color = "red";
            btn.style.display = 'inline-block';
        })
-       .editarRegistroViagem(dados);
+       .editarRegistroViagem(dados, localStorage.getItem("sms_user"), localStorage.getItem("sms_pass"));
   }
 
   // --- FILTROS ---
