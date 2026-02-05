@@ -235,6 +235,9 @@
 
   <div class="filter-bar">
     <input type="text" id="inputBuscar" placeholder="Buscar..." onkeyup="filtrarTabela()" style="padding:8px; border:1px solid #ccc; border-radius:4px; flex:2;">
+    <select id="filtroDestino" onchange="filtrarDestino()" style="padding:8px; border-radius:4px; border:1px solid #ccc;">
+      <option value="">Todos os Destinos</option>
+    </select>
     <select id="filtroMes" onchange="filtrarMes()" style="padding:8px; border-radius:4px; border:1px solid #ccc;">
       <option value="">Todos os Meses</option>
       <option value="/01/">Janeiro</option>
@@ -259,13 +262,13 @@
     <table id="tabelaDados">
       <thead>
         <tr>
-          <th>Data</th><th>Hora</th><th>Nome</th><th>Telefone</th><th>Destino</th><th>Motivo</th>
+          <th>Data</th><th>Hora</th><th>Nome</th><th>Telefone</th><th>Destino</th><th>Local</th><th>Motivo</th>
           <th>Obs (Tipo)</th><th>Acomp?</th><th>Nome Acomp 1</th><th>Nome Acomp 2</th>
           <th>Obs 2</th><th>Resp.</th>
         </tr>
       </thead>
       <tbody id="tabelaCorpo">
-        <tr><td colspan="12" style="text-align:center; padding:30px;">Carregando...</td></tr>
+        <tr><td colspan="13" style="text-align:center; padding:30px;">Carregando...</td></tr>
       </tbody>
     </table>
   </div>
@@ -313,20 +316,17 @@
     const u = localStorage.getItem("sms_user");
     const p = localStorage.getItem("sms_pass");
     google.script.run
-      .withSuccessHandler(dados => { todosDados = dados; renderizarTabela(dados); })
-      .buscarDadosRelatorio(u, p);
+      .withSuccessHandler(dados => { todosDados = dados; atualizarFiltroDestino(dados); renderizarTabela(dados); })      .buscarDadosRelatorio(u, p);
   }
 
   function renderizarTabela(dados) {
      const tbody = document.getElementById("tabelaCorpo");
      document.getElementById("totalCount").innerText = `(${dados.length})`;
-     if (dados.length === 0) { tbody.innerHTML = `<tr><td colspan="12" style="text-align:center;">Nenhum registro encontrado.</td></tr>`; return; }
-     let html = "";
+     if (dados.length === 0) { tbody.innerHTML = `<tr><td colspan="13" style="text-align:center;">Nenhum registro encontrado.</td></tr>`; return; }     let html = "";
      dados.forEach(d => {
        const temAcomp = (d.acomp === "SIM") ? '<span style="color:green; font-weight:bold;">SIM</span>' : '<span style="color:#ccc;">-</span>';
        const telefone = d.telefone || d.tel || d.celular || '-';
-       html += `<tr><td class="col-fixa">${d.data}</td><td class="col-fixa">${d.hora}</td><td class="col-nome texto-destaque">${d.nome}</td><td class="col-telefone">${telefone}</td><td class="col-destino">${d.destino}</td><td class="col-destino">${d.motivo}</td><td class="col-obs">${d.obs || ''}</td><td class="col-acomp">${temAcomp}</td><td class="col-nome" style="font-size:10px;">${d.nomeA1 || '-'}</td><td class="col-nome" style="font-size:10px;">${d.nomeA2 || '-'}</td><td class="col-obs">${d.obsA2 || '-'}</td><td class="col-resp">${d.resp || ''}</td></tr>`;
-     });
+       html += `<tr><td class="col-fixa">${d.data}</td><td class="col-fixa">${d.hora}</td><td class="col-nome texto-destaque">${d.nome}</td><td class="col-telefone">${telefone}</td><td class="col-destino">${d.destino}</td><td class="col-destino">${d.local || '-'}</td><td class="col-destino">${d.motivo}</td><td class="col-obs">${d.obs || ''}</td><td class="col-acomp">${temAcomp}</td><td class="col-nome" style="font-size:10px;">${d.nomeA1 || '-'}</td><td class="col-nome" style="font-size:10px;">${d.nomeA2 || '-'}</td><td class="col-obs">${d.obsA2 || '-'}</td><td class="col-resp">${d.resp || ''}</td></tr>`;     });
      tbody.innerHTML = html;
   }
 
@@ -442,8 +442,7 @@
     if (input.value === "") { filtroAtivo = null; renderizarTabela(todosDados); return; }
     filtroAtivo = 'BUSCA';
     const termo = input.value.toLowerCase();
-    renderizarTabela(todosDados.filter(d => d.nome.toLowerCase().includes(termo) || d.destino.toLowerCase().includes(termo) || d.data.includes(termo)));
-  }
+    renderizarTabela(todosDados.filter(d => d.nome.toLowerCase().includes(termo) || d.destino.toLowerCase().includes(termo) || (d.local || '').toLowerCase().includes(termo) || d.data.includes(termo)));  }
   function filtrarMes() {
      const select = document.getElementById("filtroMes");
      if (verificarBloqueio('MES')) { select.value = ""; return; }
@@ -457,6 +456,12 @@
      filtroAtivo = 'DATA'; const p = input.value.split("-");
      renderizarTabela(todosDados.filter(d => d.data === `${p[2]}/${p[1]}/${p[0]}`));
   }
+  function filtrarDestino() {
+     const select = document.getElementById("filtroDestino");
+     if (verificarBloqueio('DESTINO')) { select.value = ""; return; }
+     if (select.value === "") { filtroAtivo = null; renderizarTabela(todosDados); return; }
+     filtroAtivo = 'DESTINO'; renderizarTabela(todosDados.filter(d => d.destino === select.value));
+  }
   function filtrarHoje() {
      if (verificarBloqueio('HOJE')) return; filtroAtivo = 'HOJE';
      const hoje = new Date();
@@ -464,7 +469,19 @@
      renderizarTabela(todosDados.filter(d => d.data === hStr));
      document.getElementById("inputBuscar").placeholder = "Filtro: HOJE ativado...";
   }
-  function limparFiltros() { filtroAtivo = null; document.getElementById("inputBuscar").value = ""; document.getElementById("filtroMes").value = ""; document.getElementById("filtroData").value = ""; renderizarTabela(todosDados); }
+function limparFiltros() { filtroAtivo = null; document.getElementById("inputBuscar").value = ""; document.getElementById("filtroDestino").value = ""; document.getElementById("filtroMes").value = ""; document.getElementById("filtroData").value = ""; renderizarTabela(todosDados); }
+
+  function atualizarFiltroDestino(dados) {
+     const select = document.getElementById("filtroDestino");
+     const destinos = [...new Set(dados.map(d => d.destino).filter(Boolean))].sort();
+     select.innerHTML = '<option value="">Todos os Destinos</option>';
+     destinos.forEach(destino => {
+        const opt = document.createElement('option');
+        opt.value = destino;
+        opt.textContent = destino;
+        select.appendChild(opt);
+     });
+  }
 </script>
 </body>
 </html>
