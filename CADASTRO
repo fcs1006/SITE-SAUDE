@@ -46,7 +46,53 @@ function validarLogin(usuario, senha) {
   return (USUARIOS_PERMITIDOS[userLimpo] && USUARIOS_PERMITIDOS[userLimpo] === senhaLimpa);
 }
 
-function buscarDadosRelatorioJesus(mesReferencia) {
+function exigirLogin(usuario, senha) {
+  if (!validarLogin(usuario, senha)) throw new Error("Acesso negado.");
+}
+
+function atualizarCadastroBase(dados) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const abaBase = ss.getSheetByName("BASE");
+  if (!abaBase) throw new Error("Erro: Aba BASE não encontrada.");
+
+  const normalizarDoc = (v) => {
+    const limpo = (v || "").toString().replace(/\D/g, "").replace(/^0+/, "");
+    return limpo === "" ? "0" : limpo;
+  };
+  const cpfLimpo = normalizarDoc(dados.cpf);
+  if (!cpfLimpo) throw new Error("CPF/CNS obrigatório para atualizar.");
+
+  const ultimaLinha = abaBase.getLastRow();
+  if (ultimaLinha < 2) throw new Error("Base vazia.");
+
+  const cpfs = abaBase.getRange(2, 3, ultimaLinha - 1, 1).getValues();
+  let linhaAlvo = -1;
+  for (let i = 0; i < cpfs.length; i++) {
+    const cpfBase = normalizarDoc(cpfs[i][0]);
+    if (cpfBase === cpfLimpo) { linhaAlvo = i + 2; break; }
+  }
+  if (linhaAlvo < 0) throw new Error("Paciente não encontrado para atualizar.");
+
+  const nome = (dados.nome || "").toString().toUpperCase();
+  const cpf = dados.cpf || "";
+  const nasc = dados.nasc || dados.dtNasc || "";
+  const idade = dados.idade || "";
+  const endereco = (dados.endereco || "").toString().toUpperCase();
+  const numero = dados.numero || "S/N";
+  const bairro = (dados.bairro || "").toString().toUpperCase();
+  const cep = dados.cep || "";
+  const telefone = dados.telefone || "";
+  const sexo = dados.sexo || "";
+
+  abaBase.getRange(linhaAlvo, 2, 1, 10).setValues([[
+    nome, cpf, nasc, idade, endereco, numero, bairro, cep, telefone, sexo
+  ]]);
+  abaBase.getRange(linhaAlvo, 3).setNumberFormat("@").setValue(cpf);
+  return "Cadastro atualizado com sucesso!";
+}
+
+function buscarDadosRelatorioJesus(mesReferencia, usuario, senha) {
+  exigirLogin(usuario, senha);
 
   if (!/^\d{2}\/\d{4}$/.test(mesReferencia)) {
     throw new Error("Formato inválido. Use MM/AAAA.");
@@ -111,7 +157,7 @@ function buscarDadosRelatorioJesus(mesReferencia) {
 
 // --- BUSCA NA BASE (AGENDAMENTO) ---
 function buscarPacientes(usuario, senha) {
-  if (!validarLogin(usuario, senha)) throw new Error("Acesso Negado.");
+  exigirLogin(usuario, senha);
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const abaBase = ss.getSheetByName("BASE");
   if (!abaBase || abaBase.getLastRow() < 2) return [];
@@ -124,7 +170,10 @@ function buscarPacientes(usuario, senha) {
 
 // --- SALVAR NOVO PACIENTE ---
 function salvarNovoPaciente(dados) {
-  if (!validarLogin(dados.usuario, dados.senha)) throw new Error("Sessão expirada.");
+  exigirLogin(dados.usuario, dados.senha);
+  if (dados.atualizarCadastro === "SIM") {
+    return atualizarCadastroBase(dados);
+  }
   const lock = LockService.getScriptLock();
   try { lock.waitLock(10000); } catch (e) { throw new Error("Servidor ocupado."); }
 
@@ -162,11 +211,15 @@ const NOMES_AGENDAMENTO = ["GLEICYANE", "FERNANDO", "ALSIONY"];
 function executarCadastroWeb(dadosWeb) { return processarGravacao(dadosWeb); }
 
 function processarGravacao(dados) {
+  exigirLogin(dados.usuario, dados.senha);
   const lock = LockService.getScriptLock();
   try { lock.waitLock(10000); } catch (e) { throw new Error("Sistema ocupado."); }
 
   const ss = SpreadsheetApp.getActive();
   const relatorio = ss.getSheetByName("RELATORIO");
+  if (dados.atualizarCadastro === "SIM") {
+    atualizarCadastroBase(dados);
+  }
   
   let dataFormatada = dados.data;
   if (dados.data && dados.data.includes('-')) {
@@ -176,6 +229,26 @@ function processarGravacao(dados) {
 
   if (!dados.nome) throw new Error("O campo NOME é obrigatório!");
   if (dados.agendadoPor && !NOMES_AGENDAMENTO.includes(dados.agendadoPor)) throw new Error(`Agendado por inválido.`);
+
+if (!relatorio) { lock.releaseLock(); throw new Error("Aba RELATORIO não encontrada."); }
+
+  const cpfLimpo = dados.cpf ? dados.cpf.replace(/\D/g, "") : "";
+  if (cpfLimpo) {
+    const ultRelatorio = relatorio.getLastRow();
+    if (ultRelatorio >= 7) {
+      const dadosRelatorio = relatorio.getRange(7, 1, ultRelatorio - 6, 16).getDisplayValues();
+      const duplicado = dadosRelatorio.some(linha => {
+        const cpfRel = String(linha[3] || "").replace(/\D/g, "");
+        const dataRel = String(linha[1] || "").trim();
+        return cpfRel && cpfRel === cpfLimpo && dataRel === dataFormatada;
+      });
+
+      if (duplicado) {
+        lock.releaseLock();
+        throw new Error("PACIENTE JÁ CADASTRADO PARA ESTA DATA.");
+      }
+    }
+  }
 
   const mapaAbas = {
     "CONCEIÇÃO/PALMAS": "PALMAS", "CONCEIÇÃO/PALMAS - CARRO": "PALMAS",
@@ -255,9 +328,11 @@ function processarGravacao(dados) {
 }
 
 // --- FUNÇÃO PARA O RELATÓRIO (COM CAMPOS EXTRAS E ORDENAÇÃO) ---
-function buscarDadosRelatorio() {
+function buscarDadosRelatorio(usuario, senha) {
+  exigirLogin(usuario, senha);
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const abaRel = ss.getSheetByName("RELATORIO");
+  const abaBase = ss.getSheetByName("BASE");
   
   if (!abaRel) throw new Error("Aba 'RELATORIO' não encontrada.");
   const ult = abaRel.getLastRow();
@@ -272,11 +347,24 @@ function buscarDadosRelatorio() {
     11: Hora, 12: Obs (Tipo), 13: Obs A2, 14: Vazio, 15: Resp
   */
 
+  // Mapa Nome -> Telefone (BASE, coluna J = TELEFONE)
+  let mapaTelefone = {};
+  if (abaBase && abaBase.getLastRow() > 1) {
+    const baseDados = abaBase.getRange(2, 2, abaBase.getLastRow() - 1, 10).getDisplayValues();
+    baseDados.forEach(b => {
+      const nome = String(b[0] || "").toUpperCase().trim();
+      if (nome) mapaTelefone[nome] = b[8] || "";
+    });
+  }
+
   const resultado = dados.map(r => {
+    const nomeBase = String(r[2] || "").toUpperCase().trim();
+    const telefone = mapaTelefone[nomeBase] || "";
     return {
       id: r[0],
       data: r[1],
       nome: r[2],
+      telefone: telefone,
       cpf: r[3],
       acomp: r[4],      // Novo: Sim/Não
       nomeA1: r[5],     // Novo: Nome Acomp 1
@@ -311,7 +399,8 @@ function buscarDadosRelatorio() {
 }
 
 // --- [NOVO] BUSCA LISTA DE NOMES PARA O AUTOCOMPLETE ---
-function getListaNomesBase() {
+function getListaNomesBase(usuario, senha) {
+  exigirLogin(usuario, senha);
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const aba = ss.getSheetByName("BASE");
   if (!aba) return [];
@@ -320,7 +409,8 @@ function getListaNomesBase() {
 }
 
 // --- FUNÇÃO DE EXCLUSÃO (PACIENTE + ACOMPANHANTES) ---
-function excluirRegistroViagem(nome, dataInput) {
+function excluirRegistroViagem(nome, dataInput, usuario, senha) {
+  exigirLogin(usuario, senha);
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const abaRel = ss.getSheetByName("RELATORIO");
   let logMensagens = [];
@@ -439,7 +529,8 @@ function excluirRegistroViagem(nome, dataInput) {
 }
 
 // --- FUNÇÃO MESTRE DE EDIÇÃO (CORRIGIDA: OBS ACOMP 2) ---
-function editarRegistroViagem(dados) {
+function editarRegistroViagem(dados, usuario, senha) {
+  exigirLogin(usuario, senha);
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const abaRel = ss.getSheetByName("RELATORIO");
   const abaBase = ss.getSheetByName("BASE");
@@ -606,6 +697,8 @@ function editarRegistroViagem(dados) {
       let telFinal = pacienteBase ? pacienteBase.telefone : dadosPrincipal.telefone;
 
       const novoPacote = {
+         usuario: usuario,
+         senha: senha,
          data: dados.dataNova, 
          nome: nomeBuscado, cpf: cpfFinal, sexo: sexoFinal, dtNasc: nascFinal,
          endereco: endFinal, bairro: bairFinal, telefone: telFinal,
@@ -700,7 +793,8 @@ function editarRegistroViagem(dados) {
   }
 }
 
-function buscarResumoMensal(mesAno) {
+function buscarResumoMensal(mesAno, usuario, senha) {
+  exigirLogin(usuario, senha);
   if (!/^\d{2}\/\d{4}$/.test(mesAno)) {
     throw new Error("Formato inválido. Use MM/YYYY");
   }
@@ -794,5 +888,3 @@ function buscarResumoMensal(mesAno) {
 
   return resumo;
 }
-
-OLÁ
