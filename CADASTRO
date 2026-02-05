@@ -1,890 +1,735 @@
-// LISTA DE USUÁRIOS E SENHAS
-const USUARIOS_PERMITIDOS = {
-  "alsiony": "cko170560",
-  "fernando": "#Caramelo1006",
-  "gleicyane": "cko170560",
-};
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Controle de Viagem - SMS</title>
+<style>
+    /* --- CSS GERAL (MANTIDO) --- */
+    :root { --primary: #0056b3; --secondary: #004494; --success: #28a745; --text-color: #333; --border-radius: 8px; }
+    body { font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: transparent; margin: 0; padding: 20px; display: flex; justify-content: center; color: var(--text-color); font-size: 14px; }
+    
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    .spinner { border: 4px solid #f3f3f3; border-top: 4px solid var(--primary); border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin-bottom: 15px; }
+    
+    #telaCarregando { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: white; z-index: 10000; display: flex; justify-content: flex-start; align-items: center; color: var(--primary); font-weight: bold; font-size: 1.2rem; flex-direction: column; padding-top: 20%; }
+    #telaLogin { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: #f4f7f6; z-index: 9999; display: none; display: flex; flex-direction: column; align-items: center; }
+    
+    .login-box { background: white; padding: 40px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); width: 90%; max-width: 350px; text-align: center; position: fixed; top: 50px; }
+    .login-box input { width: 100%; padding: 12px; margin-top: 10px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; }
+    .login-box button { width: 100%; padding: 12px; margin-top: 20px; background-color: var(--primary); color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; }
+    .erro-login { color: red; font-size: 13px; margin-top: 15px; display: none; }
 
-// --- ROTEAMENTO ---
-function doGet(e) {
+    .card { background: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); width: 100%; max-width: 1000px; box-sizing: border-box; display: none; }
+    .header { display: flex; align-items: center; justify-content: center; border-bottom: 2px solid #eee; padding-bottom: 15px; margin-bottom: 15px; gap: 15px; text-align: left; }
+    .header img { max-height: 70px; width: auto; }
+    .header-text { color: var(--primary); font-weight: bold; font-size: 0.9rem; line-height: 1.3; text-transform: uppercase; }
+    h2 { color: var(--primary); text-align: center; margin: 0 0 20px 0; font-size: 1.5rem; }
+    h3 { background: var(--primary); color: white; padding: 10px 15px; border-radius: 4px; font-size: 1rem; margin: 25px 0 15px 0; font-weight: 600; }
 
-  if (e.parameter && e.parameter.page === 'jesus') {
-    return HtmlService.createHtmlOutputFromFile('JESUS')
-      .setTitle('Relatório Jesus')
-      .addMetaTag('viewport', 'width=device-width, initial-scale=1')
-      .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+    .grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 15px; }
+    .col-12 { grid-column: span 12; } .col-8 { grid-column: span 8; } .col-6 { grid-column: span 6; }
+    .col-4 { grid-column: span 4; } .col-3 { grid-column: span 3; } .col-2 { grid-column: span 2; }
+    
+    label { display: block; margin-bottom: 5px; font-weight: 600; font-size: 0.85rem; color: #555; }
+    input, select { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; font-size: 0.95rem; height: 40px; transition: border-color 0.3s; }
+    input[type="date"] {  font-family:'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 0.95rem;}
+
+    input:focus, select:focus { border-color: var(--primary); outline: none; box-shadow: 0 0 0 2px rgba(0, 86, 179, 0.2); }
+
+    .container-botao { margin-top: 30px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+    button { width: 100%; max-width: 300px; padding: 15px; color: white; border: none; border-radius: var(--border-radius); cursor: pointer; font-size: 1.1rem; font-weight: bold; }
+    #btnEnviar, #btnSalvarCadastro { background-color: var(--success); }
+    button:disabled { background-color: #ccc; cursor: not-allowed; }
+    #status, #statusCadastro { margin-top: 15px; font-weight: bold; padding: 10px; border-radius: 4px; text-align: center; display: none; width: 100%; max-width: 300px; }
+
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.55); display: none; align-items: center; justify-content: center; z-index: 10001; }
+    .modal-overlay.active { display: flex; }
+    .modal-box { background: #fff; border-radius: 10px; padding: 24px; max-width: 420px; width: 90%; box-shadow: 0 10px 30px rgba(0,0,0,0.2); text-align: center; }
+    .modal-title { font-size: 1.1rem; font-weight: 700; color: #c0392b; margin: 0 0 12px 0; }
+    .modal-message { font-size: 0.95rem; color: #333; margin-bottom: 18px; }
+    .modal-actions { display: flex; justify-content: center; gap: 10px; }
+    .modal-btn { background-color: var(--primary); color: #fff; border: none; padding: 10px 18px; border-radius: 6px; font-weight: 600; cursor: pointer; }
+
+    .footer-assinatura { margin-top: 40px; text-align: center; width: 100%; }
+    .texto-cidade { font-weight: bold; text-transform: uppercase; margin-bottom: 40px; color: #000; }
+    .linha-assinatura { width: 60%; margin: 0 auto; border-top: 1px solid #000; padding-top: 5px; font-weight: bold; }
+
+    .tab-container { display: flex; justify-content: center; gap: 10px; margin-bottom: 20px; }
+    .tab-btn { background-color: #e0e0e0; color: #555; border: none; padding: 10px 20px; border-radius: 20px; font-weight: bold; cursor: pointer; max-width: 200px; }
+    .tab-btn.active { background-color: var(--primary); color: white; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
+
+    @media (max-width: 600px) { .header { flex-direction: column; text-align: center; } .grid > div { grid-column: span 12 !important; } .card { padding: 15px; } }
+
+    /* --- IMPRESSÃO COMPACTA --- */
+    @media print {
+
+  @page {
+    size: A4;
+    margin: 1cm; /* antes 0.5cm */
   }
 
-  if (e.parameter && e.parameter.page === 'relatorio') {
-    return HtmlService.createHtmlOutputFromFile('RELATORIO')
-      .setTitle('Relatório Geral')
-      .addMetaTag('viewport', 'width=device-width, initial-scale=1')
-      .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+  body {
+    background-color: white;
+    padding: 0;
+    margin: 0;
+    font-size: 14px; /* antes 13px */
+    -webkit-print-color-adjust: exact;
   }
 
-  // ✅ NOVA ROTA — RESUMO
-  if (e.parameter && e.parameter.page === 'resumo') {
-    return HtmlService.createHtmlOutputFromFile('RESUMO')
-      .setTitle('Resumo Mensal')
-      .addMetaTag('viewport', 'width=device-width, initial-scale=1')
-      .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+  /* Esconde telas que não imprimem */
+  #telaLogin,
+  #telaCarregando,
+  .tab-container,
+  #viewCadastro,
+  .container-botao {
+    display: none !important;
   }
 
-  // Página principal
-  return HtmlService.createHtmlOutputFromFile('PAGINA')
-    .setTitle('Sistema de Saúde - Conceição')
-    .addMetaTag('viewport', 'width=device-width, initial-scale=1')
-    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+  #viewAgendamento {
+    display: block !important;
+  }
+
+  .card {
+    display: block !important;
+    box-shadow: none;
+    border: none;
+    padding: 0;
+    margin: 0;
+    width: 100%;
+    max-width: 100%;
+  }
+
+  /* Cabeçalho */
+  .header {
+    padding-bottom: 10px;
+    margin-bottom: 10px;
+    border-bottom: 2px solid #000;
+  }
+
+  .header img {
+    max-height: 65px; /* antes 60px */
+  }
+
+  .header-text {
+    font-size: 13px; /* antes 12px */
+    line-height: 1.3;
+    color: black;
+  }
+
+  h2 {
+    font-size: 16px;
+    margin: 10px 0;
+    color: black;
+  }
+
+  h3 {
+    background-color: #eee !important;
+    color: black !important;
+    padding: 5px 8px;
+    font-size: 14px;
+    margin: 10px 0 6px 0;
+    border: 1px solid #999;
+  }
+
+  /* Grid menos espremido */
+  .grid {
+    gap: 2px; /* antes 2px */
+  }
+
+  label {
+    margin-bottom: 2px;
+    font-size: 12px;
+    font-weight: bold;
+    color: black;
+  }
+
+  input,
+  select {
+    padding: 4px 6px; /* antes 1px 3px */
+    font-size: 13px;
+    height: auto;
+    border: 1px solid #000;
+  }
+
+  @media print {
+  input[type="date"] {
+    font-size: 13px;
+    font-family: Arial, Helvetica, sans-serif;
+  }
 }
 
 
+  /* Assinatura */
+  .footer-assinatura {
+    margin-top: 20px;
+    page-break-inside: avoid;
+  }
 
-// --- LOGIN ---
-function validarLogin(usuario, senha) {
-  const userLimpo = usuario ? usuario.toString().toLowerCase().trim() : "";
-  const senhaLimpa = senha ? senha.toString().trim() : "";
-  return (USUARIOS_PERMITIDOS[userLimpo] && USUARIOS_PERMITIDOS[userLimpo] === senhaLimpa);
+  .texto-cidade {
+    margin-bottom: 25px;
+    font-size: 12px;
+  }
+
+  .linha-assinatura {
+    border-top: 1px solid #000;
+    width: 55%;
+    font-size: 12px;
+    margin: 0 auto;
+  }
 }
 
-function exigirLogin(usuario, senha) {
-  if (!validarLogin(usuario, senha)) throw new Error("Acesso negado.");
-}
+</style>
+</head>
+<body>
 
-function atualizarCadastroBase(dados) {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const abaBase = ss.getSheetByName("BASE");
-  if (!abaBase) throw new Error("Erro: Aba BASE não encontrada.");
+<div id="telaCarregando"><div class="spinner"></div><div>Carregando sistema...</div></div>
 
-  const normalizarDoc = (v) => {
-    const limpo = (v || "").toString().replace(/\D/g, "").replace(/^0+/, "");
-    return limpo === "" ? "0" : limpo;
+<div id="telaLogin">
+  <div class="login-box">
+    <div style="margin-bottom: 20px;">
+        <img src="https://lh3.googleusercontent.com/u/0/d/1uRm9gJZ7sShqkZJSu9w7R7LgQ6PgtPnu" style="max-height: 150px;" alt="Logo">
+    </div>
+    <h2 style="font-size: 30px; color: #333; border: none;">Acesso Restrito</h2>
+    <input type="text" id="loginUser" placeholder="Usuário" autocomplete="off">
+    <input type="password" id="loginPass" placeholder="Senha">
+    <button onclick="verificarAcesso()">ENTRAR</button>
+    <div id="msgErro" class="erro-login"></div>
+  </div>
+</div>
+
+<div class="card" id="cardPrincipal">
+  <div class="header">
+    <img src="https://lh3.googleusercontent.com/u/0/d/1uRm9gJZ7sShqkZJSu9w7R7LgQ6PgtPnu" alt="Logomarca">
+    <div class="header-text">
+      ESTADO DO TOCANTINS<br>PREFEITURA MUNICIPAL DE CONCEIÇÃO DO TOCANTINS<br>
+      SECRETARIA MUNICIPAL DE SAÚDE<br>FUNDO MUNICIPAL DE SAÚDE
+    </div>
+    <div style="margin-left: auto; cursor: pointer; color: red; font-weight: bold; font-size: 12px;" onclick="sair()">[ SAIR ]</div>
+  </div>
+
+  <div class="tab-container">
+    <button type="button" class="tab-btn active" id="tabBtnAgendamento" onclick="abrirAba('agendamento')">AGENDAMENTO</button>
+    <button type="button" class="tab-btn" id="tabBtnCadastro" onclick="abrirAba('cadastro')">NOVO CADASTRO</button>
+  </div>
+
+  <div id="viewAgendamento">
+    <h2>Controle de Viagem</h2>
+    <form id="formViagem" onsubmit="event.preventDefault(); enviar();">
+      <div class="grid">
+        <div class="col-6"><label>Data da Viagem *</label><input type="date" id="data" required></div>
+        <div class="col-6"><label>Hora *</label>
+          <select id="hora" required>
+            <option value="">--:--</option>
+            <option value="06:00">06:00</option><option value="06:30">06:30</option>
+            <option value="07:00">07:00</option><option value="07:30">07:30</option>
+            <option value="08:00">08:00</option><option value="08:30">08:30</option>
+            <option value="09:00">09:00</option><option value="09:30">09:30</option>
+            <option value="10:00">10:00</option><option value="10:30">10:30</option>
+            <option value="11:00">11:00</option><option value="11:30">11:30</option>
+            <option value="12:00">12:00</option><option value="12:30">12:30</option>
+            <option value="13:00">13:00</option><option value="13:30">13:30</option>
+            <option value="14:00">14:00</option><option value="14:30">14:30</option>
+            <option value="15:00">15:00</option><option value="15:30">15:30</option>
+            <option value="16:00">16:00</option><option value="16:30">16:30</option>
+            <option value="17:00">17:00</option><option value="17:30">17:30</option>
+            <option value="18:00">18:00</option>
+          </select>
+        </div>
+
+       
+        <div class="col-12"><h3>Dados do Paciente</h3></div>
+        <div class="col-6">
+          <label>Nome do Paciente *</label>
+        <input type="text" id="nome" list="listaNomes" oninput="mascaraNome(this); debouncedBusca(this.value, 'P')" placeholder="Digite 3 letras para buscar..." autocomplete="off" required>
+          <datalist id="listaNomes"></datalist>
+        </div>
+        <div class="col-3"><label>CPF/CNS *</label><input type="text" id="cpf" required oninput="mascaraCpfCns(this)"></div>
+        <div class="col-3"><label>Telefone *</label><input type="text" id="telefone" required oninput="mascaraTelefone(this)"></div>
+
+
+        <div class="col-4"><label>Data Nasc. *</label><input type="text" id="dtNasc" required oninput="mascaraData(this)"></div>
+        <div class="col-4"><label>Idade</label><input type="number" id="idade"></div>
+        <div class="col-4"><label>Sexo *</label>
+          <select id="sexo" required><option value="">--</option><option value="M">M</option><option value="F">F</option></select>
+        </div>
+        
+      
+        <div class="col-6"><label>Endereço *</label><input type="text" id="endereco" required oninput="this.value = this.value.toUpperCase()"></div>
+        <div class="col-3"><label>Bairro *</label><input type="text" id="bairro" required oninput="this.value = this.value.toUpperCase()"></div>
+        <div class="col-3"><label>CEP *</label><input type="text" id="cep" required></div>
+        
+        <div class="col-4">
+          <label>Atualizar cadastro? *</label>
+          <select id="atualizarCadastro" required>
+            <option value="">-- SELECIONE --</option><option value="SIM">SIM</option><option value="NÃO">NÃO</option>
+          </select>
+        </div>
+        
+        <div class="col-4">
+          <label>Tipo de Viagem *</label>
+          <select id="obs" required>
+            <option value="">-- SELECIONE --</option>
+            <option value="IDA E VOLTA">IDA E VOLTA</option>
+            <option value="SÓ IDA">SÓ IDA</option>
+            <option value="SÓ VOLTA">SÓ VOLTA</option>
+          </select>
+        </div>
+
+        <div class="col-4">
+          <label>Acompanhante? *</label>
+          <select id="temAcomp" onchange="toggleAcomp()" required>
+            <option value="">-- SELECIONE --</option><option value="NÃO">NÃO</option><option value="SIM">SIM</option>
+          </select>
+        </div>
+
+        <div id="secAcomp1" class="col-12" style="display:none;">
+          <h3>Acompanhante 1</h3>
+          <div class="grid">
+             <div class="col-8">
+              <label>Nome Acomp 1 *</label>
+              <input type="text" id="nomeA1" list="listaNomesA1" oninput="mascaraNome(this); debouncedBusca(this.value, 'A1')" placeholder="Buscar..." autocomplete="off">
+              <datalist id="listaNomesA1"></datalist>
+              </div>
+              <div class="col-4"><label>CPF/CNS *</label><input type="text" id="cpfA1" oninput="mascaraCpfCns(this)"></div>
+              <div class="col-4"><label>Telefone *</label><input type="text" id="telA1" oninput="mascaraTelefone(this)"></div>
+
+              
+              <div class="col-4"><label>Data Nasc. *</label><input type="text" id="nascA1" oninput="mascaraData(this)"></div>
+              <div class="col-4"><label>Sexo *</label>
+              <select id="sexoA1"><option value="">--</option><option value="M">M</option><option value="F">F</option></select>
+              </div>
+
+              <div class="col-8"><label>Endereço *</label><input type="text" id="endA1" oninput="this.value = this.value.toUpperCase()"></div>
+              <div class="col-4"><label>Bairro *</label><input type="text" id="bairA1" oninput="this.value = this.value.toUpperCase()"></div>
+          </div>
+        </div>
+
+        <div id="secAcomp2" class="col-12" style="display:none;">
+          <h3>Acompanhante 2</h3>
+          <div class="grid">
+            <div class="col-8">
+              <label>Nome Acomp 2 *</label>
+              <input type="text" id="nomeA2" list="listaNomesA2" oninput="mascaraNome(this); debouncedBusca(this.value, 'A2')" placeholder="Buscar..." autocomplete="off">
+                 <datalist id="listaNomesA2"></datalist>
+              </div>
+              <div class="col-4"><label>CPF/CNS *</label><input type="text" id="cpfA2" oninput="mascaraCpfCns(this)"></div>
+              <div class="col-4"><label>Telefone *</label><input type="text" id="telA2" oninput="mascaraTelefone(this)"></div>
+              
+              <div class="col-4"><label>Data Nasc. *</label><input type="text" id="nascA2" oninput="mascaraData(this)"></div>
+              <div class="col-4"><label>Sexo *</label>
+                <select id="sexoA2"><option value="">--</option><option value="M">M</option><option value="F">F</option></select>
+              </div>
+              
+
+              <div class="col-8"><label>Endereço *</label><input type="text" id="endA2" oninput="this.value = this.value.toUpperCase()"></div>
+              <div class="col-4"><label>Bairro *</label><input type="text" id="bairA2" oninput="this.value = this.value.toUpperCase()"></div>
+              
+              <div class="col-12">
+                  <label>Tipo de Viagem (Acomp. 2)</label>
+                  <select id="obsA2">
+                    <option value="">-- SELECIONE --</option> 
+                    <option value="IDA E VOLTA/ACP 2">IDA E VOLTA/ACP 2</option>
+                    <option value="SÓ IDA/ACP 2">SÓ IDA/ACP 2</option>
+                    <option value="SÓ VOLTA/ACP 2">SÓ VOLTA/ACP 2</option>
+                  </select>
+              </div>
+          </div>
+        </div>
+
+        <div class="col-12"><h3>Destino e Motivo</h3></div>
+        <div class="col-4">
+          <label>Destino *</label>
+          <select id="destino" required>
+            <option value="">-- SELECIONE --</option>
+            <option value="CONCEIÇÃO/PALMAS">CONCEIÇÃO/PALMAS</option>
+            <option value="CONCEIÇÃO/PALMAS - CARRO">CONCEIÇÃO/PALMAS - CARRO</option>
+            <option value="PALMAS/CONCEIÇÃO">PALMAS/CONCEIÇÃO</option>
+            <option value="PALMAS/CONCEIÇÃO - CARRO">PALMAS/CONCEIÇÃO - CARRO</option>
+            <option value="CONCEIÇÃO/PORTO NACIONAL">CONCEIÇÃO/PORTO NACIONAL</option>
+            <option value="CONCEIÇÃO/PORTO NACIONAL - CARRO">CONCEIÇÃO/PORTO NACIONAL - CARRO</option>
+            <option value="PORTO NACIONAL/CONCEIÇÃO">PORTO NACIONAL/CONCEIÇÃO</option>
+            <option value="PORTO NACIONAL/CONCEIÇÃO - CARRO">PORTO NACIONAL/CONCEIÇÃO - CARRO</option>
+            <option value="CONCEIÇÃO/ARRAIAS">CONCEIÇÃO/ARRAIAS</option>
+            <option value="ARRAIAS/CONCEIÇÃO">ARRAIAS/CONCEIÇÃO</option>
+            <option value="CONCEIÇÃO/DIANÓPOLIS">CONCEIÇÃO/DIANÓPOLIS</option>
+            <option value="DIANÓPOLIS/CONCEIÇÃO">DIANÓPOLIS/CONCEIÇÃO</option>
+            <option value="CONCEIÇÃO/CAMPOS BELOS">CONCEIÇÃO/CAMPOS BELOS</option>
+            <option value="CONCEIÇÃO/GURUPI">CONCEIÇÃO/GURUPI</option>
+          </select>
+        </div>
+        <div class="col-4">
+          <label>Motivo *</label>
+          <select id="motivo" required>
+            <option value="">-- SELECIONE --</option>
+            <option value="CONSULTA">CONSULTA</option>
+            <option value="EXAME">EXAME</option>
+            <option value="CIRURGIA - INTERNAÇÃO">CIRURGIA - INTERNAÇÃO</option>
+            <option value="RETORNO CIR. - PÓS OP">RETORNO CIR. - PÓS OP</option>
+            <option value="PERÍCIA MÉDICA">PERÍCIA MÉDICA</option>
+            <option value="ALTA HOSPITALAR">ALTA HOSPITALAR</option>
+            <option value="CAPACITAÇÃO">CAPACITAÇÃO</option>
+            <option value="ESTUDANTE">ESTUDANTE</option>
+            <option value="SÓ RETORNO">SÓ RETORNO</option>
+          </select>
+        </div>
+        <div class="col-4">
+          <label>Agendado por: *</label>
+          <select id="agendadoPor" required>
+            <option value="">-- SELECIONE --</option>
+            <option value="GLEICYANE">GLEICYANE</option>
+            <option value="FERNANDO">FERNANDO</option>
+            <option value="ALSIONY">ALSIONY</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="footer-assinatura">
+          <div id="dataImpressao" class="texto-cidade"></div>
+          <div class="linha-assinatura">ASSINATURA</div>
+      </div>
+
+      <div class="container-botao">
+        <button type="submit" id="btnEnviar">GRAVAR NO SISTEMA</button>
+        <div id="status"></div>
+      </div>
+    </form>
+  </div>
+
+  <div id="viewCadastro" style="display:none;">
+    <h2>Cadastrar Novo Paciente na Base</h2>
+    <form id="formCadastro" onsubmit="event.preventDefault(); enviarCadastro();">
+      <div class="grid">
+        <div class="col-12"><label>Nome Completo (Somente Letras) *</label><input type="text" id="cadNome" required oninput="mascaraNome(this)"></div>
+        <div class="col-6"><label>CPF (11) ou CNS (15) *</label><input type="text" id="cadCpf" required maxlength="19" oninput="mascaraCpfCns(this)" onblur="verificarExistencia(this.value)"></div>
+        <div class="col-6"><label>Data de Nascimento *</label><input type="text" id="cadNasc" required maxlength="10" placeholder="dd/mm/aaaa" oninput="mascaraData(this); calcularIdadeAuto(this.value)"></div>
+        <div class="col-4"><label>Idade</label><input type="number" id="cadIdade" readonly style="background-color: #f0f0f0; font-weight:bold;"></div>
+        <div class="col-4"><label>Sexo *</label><select id="cadSexo" required><option value="">--</option><option value="M">M</option><option value="F">F</option></select></div>
+        <div class="col-4"><label>Telefone *</label><input type="text" id="cadTelefone" required maxlength="15" oninput="mascaraTelefone(this)"></div>
+        <div class="col-4"><label>CEP</label><input type="text" id="cadCep" value="77.305-000" readonly style="background-color: #e9ecef;"></div>
+        <div class="col-6"><label>Endereço *</label><input type="text" id="cadEndereco" required oninput="this.value = this.value.toUpperCase()"></div>
+        <div class="col-2"><label>Nº</label><input type="text" id="cadNumero" value="S/N" readonly style="background-color: #e9ecef; text-align: center;"></div>
+      <div class="col-12"><label>Bairro *</label><input type="text" id="cadBairro" required oninput="this.value = this.value.toUpperCase()"></div>
+    </div>
+      <div class="container-botao" style="flex-direction: row; justify-content: center;">
+        <button type="button" onclick="limparCadastro()" style="background-color: #6c757d; margin-right: 10px; max-width: 150px;">LIMPAR</button>
+        <button type="submit" id="btnSalvarCadastro" style="max-width: 200px;">SALVAR NA BASE</button>
+      </div>
+      <div id="statusCadastro" style="margin-top: 10px; text-align: center;"></div>
+    </form>
+  </div>
+</div>
+
+<div id="dupModal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="dupModalTitle" aria-describedby="dupModalMessage">
+  <div class="modal-box">
+    <div id="dupModalTitle" class="modal-title">Atenção</div>
+    <div id="dupModalMessage" class="modal-message"></div>
+    <div class="modal-actions">
+      <button type="button" class="modal-btn" onclick="fecharModalDuplicidade()">OK</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const CREDENCIAIS = { "alsiony": "cko170560", "fernando": "#Caramelo1006", "gleicyane": "cko170560" };
+  let bancoDeDados = [];
+  let pacienteCarregado = false;
+  const TEMPO_SESSAO_MINUTOS = 240;
+
+  window.onload = function() {
+      const hoje = new Date();
+      const dia = String(hoje.getDate()).padStart(2, '0');
+      const mes = String(hoje.getMonth() + 1).padStart(2, '0');
+      const ano = hoje.getFullYear();
+      document.getElementById('dataImpressao').innerText = `CONCEIÇÃO DO TOCANTINS-TO, ${dia}/${mes}/${ano}`;
+      verificarSessaoSalva();
+      setAtualizarCadastroDisponivel(false);
+      toggleAcomp(); // Inicia com o estado correto
   };
-  const cpfLimpo = normalizarDoc(dados.cpf);
-  if (!cpfLimpo) throw new Error("CPF/CNS obrigatório para atualizar.");
 
-  const ultimaLinha = abaBase.getLastRow();
-  if (ultimaLinha < 2) throw new Error("Base vazia.");
-
-  const cpfs = abaBase.getRange(2, 3, ultimaLinha - 1, 1).getValues();
-  let linhaAlvo = -1;
-  for (let i = 0; i < cpfs.length; i++) {
-    const cpfBase = normalizarDoc(cpfs[i][0]);
-    if (cpfBase === cpfLimpo) { linhaAlvo = i + 2; break; }
+  // --- Máscaras ---
+  function mascaraNome(input) { input.value = input.value.replace(/[^a-zA-Z\u00C0-\u00FF\s]/g, "").toUpperCase(); }
+  function mascaraCpfCns(input) {
+    let v = input.value.replace(/\D/g, "");
+    if (v.length > 11) { input.maxLength = 19; v = v.replace(/^(\d{3})(\d)/, "$1.$2"); v = v.replace(/^(\d{3})\.(\d{3})(\d)/, "$1.$2.$3"); v = v.replace(/^(\d{3})\.(\d{3})\.(\d{3})(\d)/, "$1.$2.$3.$4"); v = v.replace(/^(\d{3})\.(\d{3})\.(\d{3})\.(\d{3})(\d)/, "$1.$2.$3.$4.$5"); } 
+    else { v = v.replace(/(\d{3})(\d)/, "$1.$2"); v = v.replace(/(\d{3})(\d)/, "$1.$2"); v = v.replace(/(\d{3})(\d{1,2})$/, "$1-$2"); }
+    input.value = v;
   }
-  if (linhaAlvo < 0) throw new Error("Paciente não encontrado para atualizar.");
-
-  const nome = (dados.nome || "").toString().toUpperCase();
-  const cpf = dados.cpf || "";
-  const nasc = dados.nasc || dados.dtNasc || "";
-  const idade = dados.idade || "";
-  const endereco = (dados.endereco || "").toString().toUpperCase();
-  const numero = dados.numero || "S/N";
-  const bairro = (dados.bairro || "").toString().toUpperCase();
-  const cep = dados.cep || "";
-  const telefone = dados.telefone || "";
-  const sexo = dados.sexo || "";
-
-  abaBase.getRange(linhaAlvo, 2, 1, 10).setValues([[
-    nome, cpf, nasc, idade, endereco, numero, bairro, cep, telefone, sexo
-  ]]);
-  abaBase.getRange(linhaAlvo, 3).setNumberFormat("@").setValue(cpf);
-  return "Cadastro atualizado com sucesso!";
-}
-
-function buscarDadosRelatorioJesus(mesReferencia, usuario, senha) {
-  exigirLogin(usuario, senha);
-
-  if (!/^\d{2}\/\d{4}$/.test(mesReferencia)) {
-    throw new Error("Formato inválido. Use MM/AAAA.");
+  function mascaraData(input) { let v = input.value.replace(/\D/g, ""); v = v.replace(/(\d{2})(\d)/, "$1/$2"); v = v.replace(/(\d{2})(\d)/, "$1/$2"); input.value = v; }
+  function mascaraTelefone(input) { let v = input.value.replace(/\D/g, ""); v = v.replace(/^(\d{2})(\d)/g, "($1) $2"); v = v.replace(/(\d)(\d{4})$/, "$1-$2"); input.value = v; }
+  function calcularIdadeAuto(dataStr) {
+    if (!dataStr || dataStr.length < 10) return;
+    const partes = dataStr.split('/'); if (partes.length !== 3) return;
+    const diaNasc = parseInt(partes[0]); const mesNasc = parseInt(partes[1]) - 1; const anoNasc = parseInt(partes[2]);
+    const hoje = new Date(); const nascimento = new Date(anoNasc, mesNasc, diaNasc);
+    let idade = hoje.getFullYear() - nascimento.getFullYear();
+    const m = hoje.getMonth() - nascimento.getMonth();
+    if (m < 0 || (m === 0 && hoje.getDate() < nascimento.getDate())) idade--;
+    if (idade >= 0) document.getElementById('cadIdade').value = idade;
   }
 
-  const ss = SpreadsheetApp.openById("1lVo6qu0m-Pw-Cph7prFeuD3fEAMa7LYD2InzKPKNKnE");
-  const relatorio = ss.getSheetByName("RELATORIO");
-  if (!relatorio) throw new Error("Aba RELATORIO não encontrada.");
-
-  const rotasPermitidas = [
-    "CONCEIÇÃO/PALMAS",
-    "PALMAS/CONCEIÇÃO",
-    "CONCEIÇÃO/PORTO NACIONAL",
-    "PORTO NACIONAL/CONCEIÇÃO"
-  ];
-
-  const ultimaLinha = relatorio.getLastRow();
-  if (ultimaLinha < 7) return [];
-
-  // 🔹 A até P (16 colunas)
-  const dados = relatorio
-    .getRange(7, 1, ultimaLinha - 6, 16)
-    .getDisplayValues();
-
-  // 🔹 FILTRO PELO MÊS (COLUNA 15 = índice 14)
-  const filtrados = dados.filter(l => {
-    const mesColuna = String(l[14]).trim(); // mm/yyyy
-    const rota = String(l[10]).trim();
-    return mesColuna === mesReferencia && rotasPermitidas.includes(rota);
-  });
-
-  // 🔹 ORDENA POR DATA
-  filtrados.sort((a, b) => {
-    const dA = new Date(a[1].split("/").reverse().join("-"));
-    const dB = new Date(b[1].split("/").reverse().join("-"));
-    return dA - dB;
-  });
-
-  // 🔹 RETORNO 100% IGUAL AO CABEÇALHO
-  return filtrados.map((l, i) => ({
-    num: i + 1,        // Nº
-    data: l[1],       // Data
-    nome: l[2],       // Nome
-    cpf: l[3],        // CPF
-    acomp: l[4],      // Acomp
-    nomeA1: l[5],     // Nome acomp 1
-    cpfA1: l[6],      // CPF acomp 1
-    nomeA2: l[7],     // Nome acomp 2
-    cpfA2: l[8],      // CPF acomp 2
-    motivo: l[9],     // Motivo
-    destino: l[10],   // Destino
-    hora: l[11],      // Hora
-    obs: l[12],       // Obs (Tipo)
-    obs2: l[13],      // Obs2
-    vazio: l[14],     // Vazio (mm/yyyy)
-    resp: l[15]       // Resp
-  }));
-}
-
-
-
-
-// --- BUSCA NA BASE (AGENDAMENTO) ---
-function buscarPacientes(usuario, senha) {
-  exigirLogin(usuario, senha);
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const abaBase = ss.getSheetByName("BASE");
-  if (!abaBase || abaBase.getLastRow() < 2) return [];
-  const dados = abaBase.getRange(2, 2, abaBase.getLastRow() - 1, 10).getDisplayValues();
-  return dados.map(r => ({
-    nome: r[0], cpf: r[1], nasc: r[2], idade: r[3], endereco: r[4], 
-    numero: r[5], bairro: r[6], cep: r[7], telefone: r[8], sexo: r[9]
-  }));
-}
-
-// --- SALVAR NOVO PACIENTE ---
-function salvarNovoPaciente(dados) {
-  exigirLogin(dados.usuario, dados.senha);
-  if (dados.atualizarCadastro === "SIM") {
-    return atualizarCadastroBase(dados);
-  }
-  const lock = LockService.getScriptLock();
-  try { lock.waitLock(10000); } catch (e) { throw new Error("Servidor ocupado."); }
-
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const abaBase = ss.getSheetByName("BASE");
-  if (!abaBase) { lock.releaseLock(); throw new Error("Erro: Aba BASE não encontrada."); }
-
-  if (!dados.nome || !dados.cpf || !dados.nasc || !dados.sexo || !dados.endereco || !dados.bairro) {
-    lock.releaseLock(); throw new Error("Todos os campos são obrigatórios!");
+  // --- Funções de Sistema ---
+  function verificarExistencia(valor) {
+    if (!valor || valor.length < 5) return;
+    if (!bancoDeDados || bancoDeDados.length === 0) return;
+    const valorLimpo = valor.replace(/\D/g, "");
+    const paciente = bancoDeDados.find(p => { const cpfBaseLimpo = p.cpf ? p.cpf.toString().replace(/\D/g, "") : ""; return cpfBaseLimpo === valorLimpo; });
+    if (paciente) {
+       alert(`PACIENTE JÁ CADASTRADO!\n\nNome: ${paciente.nome}\nData Nasc: ${paciente.nasc}\n\nOs dados serão carregados.`);
+       document.getElementById('cadNome').value = paciente.nome; document.getElementById('cadNasc').value = paciente.nasc;
+       document.getElementById('cadSexo').value = (paciente.sexo && paciente.sexo.substring(0,1).toUpperCase()) || "";
+       document.getElementById('cadTelefone').value = paciente.telefone || ""; document.getElementById('cadEndereco').value = paciente.endereco || "";
+       document.getElementById('cadBairro').value = paciente.bairro || ""; calcularIdadeAuto(paciente.nasc);
+       mostrarStatus("⚠️ Paciente já existe na base!", "erro", "statusCadastro");
+    }
   }
 
-  // Verifica duplicidade antes de salvar
-  const dadosExistentes = abaBase.getRange(2, 3, abaBase.getLastRow(), 1).getValues().flat(); // Coluna C (CPF)
-  const cpfLimpo = dados.cpf.replace(/\D/g, "");
-  const existe = dadosExistentes.some(c => c.toString().replace(/\D/g, "") === cpfLimpo);
-  
-  if (existe) {
-     lock.releaseLock(); 
-     throw new Error("PACIENTE JÁ CADASTRADO COM ESSE CPF.");
-  }
-
-  const novaLinha = [
-    dados.nome.toUpperCase(), dados.cpf, dados.nasc, dados.idade,
-    dados.endereco.toUpperCase(), "S/N", dados.bairro.toUpperCase(),
-    dados.cep, dados.telefone, dados.sexo
-  ];
-  abaBase.appendRow(["", ...novaLinha]);
-  lock.releaseLock();
-  return "Paciente cadastrado com sucesso!";
-}
-
-// --- EXECUTAR CADASTRO VIAGEM ---
-const NOMES_AGENDAMENTO = ["GLEICYANE", "FERNANDO", "ALSIONY"];
-
-function executarCadastroWeb(dadosWeb) { return processarGravacao(dadosWeb); }
-
-function processarGravacao(dados) {
-  exigirLogin(dados.usuario, dados.senha);
-  const lock = LockService.getScriptLock();
-  try { lock.waitLock(10000); } catch (e) { throw new Error("Sistema ocupado."); }
-
-  const ss = SpreadsheetApp.getActive();
-  const relatorio = ss.getSheetByName("RELATORIO");
-  if (dados.atualizarCadastro === "SIM") {
-    atualizarCadastroBase(dados);
+  function limparCadastro() { 
+      document.getElementById("formCadastro").reset(); 
+      document.getElementById("statusCadastro").style.display = 'none'; 
+      document.getElementById("cadIdade").value = ""; 
+      // Não coloca foco para evitar descer a tela
   }
   
-  let dataFormatada = dados.data;
-  if (dados.data && dados.data.includes('-')) {
-    const p = dados.data.split('-');
-    if (p.length === 3) dataFormatada = `${p[2]}/${p[1]}/${p[0]}`;
+  function abrirAba(nomeAba) {
+    document.getElementById('viewAgendamento').style.display = 'none'; document.getElementById('viewCadastro').style.display = 'none';
+    document.getElementById('tabBtnAgendamento').classList.remove('active'); document.getElementById('tabBtnCadastro').classList.remove('active');
+    if (nomeAba === 'agendamento') { document.getElementById('viewAgendamento').style.display = 'block'; document.getElementById('tabBtnAgendamento').classList.add('active'); } 
+    else { document.getElementById('viewCadastro').style.display = 'block'; document.getElementById('tabBtnCadastro').classList.add('active'); }
   }
-
-  if (!dados.nome) throw new Error("O campo NOME é obrigatório!");
-  if (dados.agendadoPor && !NOMES_AGENDAMENTO.includes(dados.agendadoPor)) throw new Error(`Agendado por inválido.`);
-
-if (!relatorio) { lock.releaseLock(); throw new Error("Aba RELATORIO não encontrada."); }
-
-  const cpfLimpo = dados.cpf ? dados.cpf.replace(/\D/g, "") : "";
-  if (cpfLimpo) {
-    const ultRelatorio = relatorio.getLastRow();
-    if (ultRelatorio >= 7) {
-      const dadosRelatorio = relatorio.getRange(7, 1, ultRelatorio - 6, 16).getDisplayValues();
-      const duplicado = dadosRelatorio.some(linha => {
-        const cpfRel = String(linha[3] || "").replace(/\D/g, "");
-        const dataRel = String(linha[1] || "").trim();
-        return cpfRel && cpfRel === cpfLimpo && dataRel === dataFormatada;
-      });
-
-      if (duplicado) {
-        lock.releaseLock();
-        throw new Error("PACIENTE JÁ CADASTRADO PARA ESTA DATA.");
+  function verificarSessaoSalva() {
+      const userSalvo = localStorage.getItem("sms_user"); const passSalvo = localStorage.getItem("sms_pass"); const timeSalvo = localStorage.getItem("sms_time");
+      const agora = new Date().getTime();
+      if (userSalvo && passSalvo && timeSalvo && (agora - parseInt(timeSalvo)) / 1000 / 60 < TEMPO_SESSAO_MINUTOS) {
+          document.getElementById("loginUser").value = userSalvo; document.getElementById("loginPass").value = passSalvo; verificarAcesso(true); return;
       }
+      mostrarLogin();
+  }
+  function mostrarLogin() { document.getElementById("telaCarregando").style.display = "none"; document.getElementById("telaLogin").style.display = "flex"; localStorage.clear(); }
+  function verificarAcesso(isAuto = false) {
+      const user = document.getElementById("loginUser").value.toLowerCase().trim(); const pass = document.getElementById("loginPass").value.trim();
+      const erro = document.getElementById("msgErro"); const btn = document.querySelector("#telaLogin button");
+      if (!isAuto) { btn.innerText = "Entrando..."; btn.disabled = true; erro.style.display = 'none'; }
+      if (CREDENCIAIS[user] && CREDENCIAIS[user] === pass) {
+          localStorage.setItem("sms_user", user); localStorage.setItem("sms_pass", pass); localStorage.setItem("sms_time", new Date().getTime());
+          document.getElementById("telaCarregando").style.display = "none"; document.getElementById("telaLogin").style.display = "none"; document.getElementById("cardPrincipal").style.display = "block";
+          if(!isAuto) { mostrarStatus(`Bem-vindo(a), ${user.toUpperCase()}!`, "info", "status"); setTimeout(() => document.getElementById('status').style.display = 'none', 2000); }
+          carregarBancoDeDados(user, pass);
+      } else { mostrarLogin(); erro.style.display = 'block'; erro.innerText = "Usuário ou senha incorretos!"; if(!isAuto) { btn.innerText = "ENTRAR"; btn.disabled = false; } }
+  }
+  function carregarBancoDeDados(user, pass) {
+      const inputNome = document.getElementById("nome"); inputNome.disabled = true; inputNome.placeholder = "🔄 Carregando lista...";
+      google.script.run.withSuccessHandler(dados => { bancoDeDados = dados; inputNome.disabled = false; inputNome.placeholder = "Digite 3 letras para buscar..."; }).withFailureHandler(err => { console.error("Erro", err); inputNome.placeholder = "Erro ao carregar lista."; }).buscarPacientes(user, pass);
+  }
+  function sair() { localStorage.clear(); location.reload(); }
+  document.getElementById("loginPass").addEventListener("keyup", function(event) { if (event.key === "Enter") verificarAcesso(); });
+  let timeoutBusca = null;
+  function debouncedBusca(valor, tipo) { clearTimeout(timeoutBusca); timeoutBusca = setTimeout(() => { gerenciarBusca(valor, tipo); }, 300); }
+  function gerenciarBusca(valor, tipo) {
+    if (!bancoDeDados || bancoDeDados.length === 0) return;
+    const idDatalist = tipo === 'P' ? 'listaNomes' : (tipo === 'A1' ? 'listaNomesA1' : 'listaNomesA2');
+    const datalist = document.getElementById(idDatalist);
+    const pacienteEncontrado = bancoDeDados.find(x => x.nome.toUpperCase() === valor.toUpperCase());
+    if (pacienteEncontrado) preencherCampos(pacienteEncontrado, tipo);
+    if (tipo === 'P' && !pacienteEncontrado) {
+      pacienteCarregado = false;
+      setAtualizarCadastroDisponivel(false);
+    }
+    if (valor.length < 3) { datalist.innerHTML = ''; return; }
+    datalist.innerHTML = ''; 
+    const sugestoes = bancoDeDados.filter(p => p.nome.toUpperCase().includes(valor.toUpperCase())).slice(0, 10); 
+    const fragment = document.createDocumentFragment();
+    sugestoes.forEach(p => { let opt = document.createElement('option'); opt.value = p.nome; fragment.appendChild(opt); });
+    datalist.appendChild(fragment);
+  }
+  function preencherCampos(p, tipo) {
+    if (tipo === 'P') {
+      document.getElementById('cpf').value = p.cpf || ""; document.getElementById('dtNasc').value = p.nasc || ""; 
+      document.getElementById('endereco').value = p.endereco || ""; document.getElementById('bairro').value = p.bairro || "";
+      document.getElementById('telefone').value = p.telefone || ""; document.getElementById('idade').value = p.idade || "";
+      document.getElementById('cep').value = p.cep || ""; document.getElementById('sexo').value = (p.sexo && p.sexo.substring(0,1).toUpperCase()) || "";
+      pacienteCarregado = true;
+      setAtualizarCadastroDisponivel(true);
+    } else if (tipo === 'A1') {
+      document.getElementById('cpfA1').value = p.cpf || ""; document.getElementById('nascA1').value = p.nasc || "";
+      document.getElementById('endA1').value = p.endereco || ""; document.getElementById('bairA1').value = p.bairro || "";
+      document.getElementById('sexoA1').value = (p.sexo && p.sexo.substring(0,1).toUpperCase()) || "";
+      document.getElementById('telA1').value = p.telefone || "";
+    } else if (tipo === 'A2') {
+      document.getElementById('cpfA2').value = p.cpf || ""; document.getElementById('nascA2').value = p.nasc || "";
+      document.getElementById('endA2').value = p.endereco || ""; document.getElementById('bairA2').value = p.bairro || "";
+      document.getElementById('sexoA2').value = (p.sexo && p.sexo.substring(0,1).toUpperCase()) || "";
+      document.getElementById('telA2').value = p.telefone || "";
     }
   }
 
-  const mapaAbas = {
-    "CONCEIÇÃO/PALMAS": "PALMAS", "CONCEIÇÃO/PALMAS - CARRO": "PALMAS",
-    "PALMAS/CONCEIÇÃO": "PALMAS", "PALMAS/CONCEIÇÃO - CARRO": "PALMAS",
-    "CONCEIÇÃO/PORTO NACIONAL": "PORTO NACIONAL", "CONCEIÇÃO/PORTO NACIONAL - CARRO": "PORTO NACIONAL",
-    "PORTO NACIONAL/CONCEIÇÃO": "PORTO NACIONAL", "PORTO NACIONAL/CONCEIÇÃO - CARRO": "PORTO NACIONAL",
-    "CONCEIÇÃO/ARRAIAS": "ARRAIAS", "ARRAIAS/CONCEIÇÃO": "ARRAIAS",
-    "CONCEIÇÃO/DIANÓPOLIS": "DIANÓPOLIS", "DIANÓPOLIS/CONCEIÇÃO": "DIANÓPOLIS",
-    "CONCEIÇÃO/CAMPOS BELOS": "CAMPOS BELOS", "CONCEIÇÃO/GURUPI": "GURUPI"
-  };
-
-  const abaDestinoNome = mapaAbas[dados.destino];
-  if (!abaDestinoNome) throw new Error(`Destino inválido.`);
-  const abaDestino = ss.getSheetByName(abaDestinoNome);
-  
-  if (!abaDestino) { lock.releaseLock(); return "Erro: Aba de destino não encontrada."; }
-
-  // Lógica de blocos
-  const LINHA_INICIAL_CPF = 17; const TAMANHO_DO_BLOCO = 14;
-  const dadosColunaB = abaDestino.getRange(LINHA_INICIAL_CPF, 2, Math.max(abaDestino.getLastRow(), LINHA_INICIAL_CPF) - LINHA_INICIAL_CPF + 20).getValues();
-  let indexBloco = 0;
-  while (dadosColunaB[indexBloco] && dadosColunaB[indexBloco][0] !== "") { indexBloco += TAMANHO_DO_BLOCO; }
-  let linhaAlvo = LINHA_INICIAL_CPF + indexBloco;
-
-  const colarPessoa = (linha, cpf, nome, sexo, dtNasc, endereco, bairro, telefone) => {
-    if (linha > abaDestino.getLastRow()) {
-        const linhaModelo = LINHA_INICIAL_CPF - 2;
-        abaDestino.getRange(linhaModelo, 1, TAMANHO_DO_BLOCO, 12).copyTo(abaDestino.getRange(linha - 2, 1));
-    }
-    abaDestino.getRange(linha, 2).setNumberFormat("@").setValue(cpf);
-    abaDestino.getRange(linha, 4).setValue(nome);
-    abaDestino.getRange(linha, 10).setValue(sexo); 
-    abaDestino.getRange(linha + 3, 2).setValue(dtNasc);
-    abaDestino.getRange(linha + 6, 2).setValue(endereco);
-    abaDestino.getRange(linha + 6, 6).setValue(bairro);
-    abaDestino.getRange(linha + 6, 8).setValue(telefone); 
-    abaDestino.getRange(linha + 10, 2).setValue(dataFormatada);
-  };
-
-  // 1. Cola PACIENTE PRINCIPAL
-  colarPessoa(linhaAlvo, dados.cpf, dados.nome, dados.sexo, dados.dtNasc, dados.endereco, dados.bairro, dados.telefone);
-  
-  // 2. Cola ACOMPANHANTE 1 (CORRIGIDO)
-  if (dados.nomeA1) { 
-      linhaAlvo += TAMANHO_DO_BLOCO; 
-      let sA1 = dados.sexoA1 || ""; 
-      let tA1 = dados.telA1 || dados.telefone; 
-      colarPessoa(linhaAlvo, dados.cpfA1, dados.nomeA1, sA1, dados.nascA1, dados.endA1, dados.bairA1, tA1); 
-  }
-  
-  // 3. Cola ACOMPANHANTE 2 (CORRIGIDO)
-  if (dados.nomeA2) { 
-      linhaAlvo += TAMANHO_DO_BLOCO; 
-      let sA2 = dados.sexoA2 || "";
-      let tA2 = dados.telA2 || dados.telefone;
-      colarPessoa(linhaAlvo, dados.cpfA2, dados.nomeA2, sA2, dados.nascA2, dados.endA2, dados.bairA2, tA2); 
+  // --- LÓGICA DE VISIBILIDADE DOS ACOMPANHANTES ---
+  function toggleAcomp() {
+    const temAcomp = document.getElementById('temAcomp').value === "SIM";
+    document.getElementById('secAcomp1').style.display = temAcomp ? "block" : "none";
+    document.getElementById('secAcomp2').style.display = temAcomp ? "block" : "none";
   }
 
-  // Relatório
-  const ultimaLinhaRel = relatorio.getRange(relatorio.getMaxRows(), 1).getNextDataCell(SpreadsheetApp.Direction.UP).getRow();
-  let linhaDestinoRel = ultimaLinhaRel < 6 ? 6 : ultimaLinhaRel + 1;
-  let proximoNumero = 1;
-  const valorAnterior = relatorio.getRange(ultimaLinhaRel, 1).getValue();
-  if (!isNaN(valorAnterior) && typeof valorAnterior === 'number') proximoNumero = valorAnterior + 1;
+  function setAtualizarCadastroDisponivel(ativo) {
+    const sel = document.getElementById('atualizarCadastro');
+    if (!sel) return;
+    sel.disabled = !ativo;
+    if (!ativo) sel.value = "";
+  }
 
-  const linhaRel = [
-    proximoNumero, dataFormatada, dados.nome, dados.cpf, dados.temAcomp, 
-    dados.nomeA1||"", dados.cpfA1||"", dados.nomeA2||"", dados.cpfA2||"", 
-    dados.motivo, dados.destino, dados.hora, dados.obs, dados.obsA2||"", "", dados.agendadoPor
-  ];
-  
-  relatorio.getRange(linhaDestinoRel, 1, 1, 16).setNumberFormat("@").setValues([linhaRel]);
-  relatorio.getRange(linhaDestinoRel, 15).setFormula(`=IF(B${linhaDestinoRel}="";"";TEXT(B${linhaDestinoRel};"mm/yyyy"))`);
+  // --- Função auxiliar para atribuir 'required' dinamicamente ---
+  function setRequired(id, isRequired) {
+      const el = document.getElementById(id);
+      if(el) {
+          if(isRequired) el.setAttribute('required', 'true');
+          else el.removeAttribute('required');
+      }
+  }
 
-  lock.releaseLock();
-  return "Viagem agendada com sucesso!";
+  function mostrarStatus(mensagem, tipo, idDiv = 'status') {
+      const div = document.getElementById(idDiv); div.style.display = 'block'; div.innerText = mensagem;
+      if (tipo === 'erro') { div.style.backgroundColor = '#f8d7da'; div.style.color = '#721c24'; }
+      else if (tipo === 'sucesso') { div.style.backgroundColor = '#d4edda'; div.style.color = '#155724'; }
+      else { div.style.backgroundColor = '#cce5ff'; div.style.color = '#004085'; }
+  }
+
+  function scrollToTop(behavior = 'auto') {
+      try {
+          document.documentElement.scrollTop = 0;
+          document.body.scrollTop = 0;
+          window.scrollTo({ top: 0, left: 0, behavior });
+      } catch (e) {
+          window.scrollTo(0, 0);
+      }
+  }
+
+  function abrirModalDuplicidade(mensagem) {
+    const modal = document.getElementById('dupModal');
+    const msgEl = document.getElementById('dupModalMessage');
+    const status = document.getElementById('status');
+    if (msgEl) msgEl.innerText = mensagem;
+    if (status) status.style.display = 'none';
+    modal.classList.add('active');
 }
 
-// --- FUNÇÃO PARA O RELATÓRIO (COM CAMPOS EXTRAS E ORDENAÇÃO) ---
-function buscarDadosRelatorio(usuario, senha) {
-  exigirLogin(usuario, senha);
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const abaRel = ss.getSheetByName("RELATORIO");
-  const abaBase = ss.getSheetByName("BASE");
-  
-  if (!abaRel) throw new Error("Aba 'RELATORIO' não encontrada.");
-  const ult = abaRel.getLastRow();
-  if (ult < 6) return [];
-  
-  // Pega dados da Coluna A até P (16 colunas)
-  const dados = abaRel.getRange(7, 1, ult - 6, 16).getDisplayValues();
-  
-  /* ÍNDICES (Baseado na gravação):
-    0: ID, 1: Data, 2: Nome, 3: CPF, 4: Tem Acomp, 5: Nome A1, 
-    6: CPF A1, 7: Nome A2, 8: CPF A2, 9: Motivo, 10: Destino, 
-    11: Hora, 12: Obs (Tipo), 13: Obs A2, 14: Vazio, 15: Resp
-  */
+function fecharModalDuplicidade() {
+    const modal = document.getElementById('dupModal');
+    const msgEl = document.getElementById('dupModalMessage');
+    modal.classList.remove('active');
+    if (msgEl) msgEl.innerText = '';
+}
 
-  // Mapa Nome -> Telefone (BASE, coluna J = TELEFONE)
-  let mapaTelefone = {};
-  if (abaBase && abaBase.getLastRow() > 1) {
-    const baseDados = abaBase.getRange(2, 2, abaBase.getLastRow() - 1, 10).getDisplayValues();
-    baseDados.forEach(b => {
-      const nome = String(b[0] || "").toUpperCase().trim();
-      if (nome) mapaTelefone[nome] = b[8] || "";
-    });
-  }
+  function enviar() {
+    const btn = document.getElementById("btnEnviar");
+    const form = document.getElementById('formViagem');
+    const temAcomp = document.getElementById("temAcomp").value;
+    const nomeA2 = document.getElementById('nomeA2').value.trim(); // Gatilho pelo NOME
+    const atualizarCadastro = document.getElementById('atualizarCadastro').value;
 
-  const resultado = dados.map(r => {
-    const nomeBase = String(r[2] || "").toUpperCase().trim();
-    const telefone = mapaTelefone[nomeBase] || "";
-    return {
-      id: r[0],
-      data: r[1],
-      nome: r[2],
-      telefone: telefone,
-      cpf: r[3],
-      acomp: r[4],      // Novo: Sim/Não
-      nomeA1: r[5],     // Novo: Nome Acomp 1
-      nomeA2: r[7],     // Novo: Nome Acomp 2
-      motivo: r[9],
-      destino: r[10],
-      hora: r[11],
-      obs: r[12],       // Novo: Tipo Viagem
-      obsA2: r[13],     // Novo: Tipo Viagem Acomp 2
-      resp: r[15]
+    // --- REGRAS DE VALIDAÇÃO (BALÃOZINHO NATIVO) ---
+    
+    // 1. Acompanhante 1: Se SIM, todos obrigatórios
+    const isA1 = (temAcomp === "SIM");
+    setRequired('nomeA1', isA1); setRequired('cpfA1', isA1); setRequired('nascA1', isA1);
+    setRequired('sexoA1', isA1); setRequired('telA1', isA1); setRequired('endA1', isA1); setRequired('bairA1', isA1);
+
+    // 2. Acompanhante 2: Se Tiver Acompanhante (SIM) **E** Nome do Acomp 2 preenchido
+    const isA2 = (temAcomp === "SIM" && nomeA2 !== "");
+    
+    setRequired('cpfA2', isA2); setRequired('nascA2', isA2);
+    setRequired('sexoA2', isA2); setRequired('telA2', isA2); setRequired('endA2', isA2); setRequired('bairA2', isA2);
+    setRequired('obsA2', isA2);
+
+    // Dispara a validação nativa do navegador
+    if (!form.checkValidity()) {
+        form.reportValidity(); // Mostra o balão onde falta preencher
+        return;
+    }
+    if (atualizarCadastro === "SIM" && !pacienteCarregado) {
+        mostrarStatus("Selecione um paciente da base para atualizar.", "erro", "status");
+        return;
+    }
+
+    btn.disabled = true; mostrarStatus("Gravando dados...", "info", "status");
+    
+    const formObj = {
+      usuario: localStorage.getItem("sms_user"),
+      senha: localStorage.getItem("sms_pass"),
+      data: document.getElementById('data').value, hora: document.getElementById('hora').value,
+      nome: document.getElementById('nome').value, cpf: document.getElementById('cpf').value, dtNasc: document.getElementById('dtNasc').value,
+      sexo: document.getElementById('sexo').value, idade: document.getElementById('idade').value, cep: document.getElementById('cep').value,
+      endereco: document.getElementById('endereco').value, bairro: document.getElementById('bairro').value, telefone: document.getElementById('telefone').value,
+      atualizarCadastro: document.getElementById('atualizarCadastro').value,
+      temAcomp: temAcomp, obs: document.getElementById('obs').value,
+      
+      nomeA1: document.getElementById('nomeA1').value, cpfA1: document.getElementById('cpfA1').value, nascA1: document.getElementById('nascA1').value,
+      endA1: document.getElementById('endA1').value, bairA1: document.getElementById('bairA1').value,
+      sexoA1: document.getElementById('sexoA1').value, telA1: document.getElementById('telA1').value,
+
+      nomeA2: document.getElementById('nomeA2').value, cpfA2: document.getElementById('cpfA2').value, nascA2: document.getElementById('nascA2').value,
+      endA2: document.getElementById('endA2').value, bairA2: document.getElementById('bairA2').value, obsA2: document.getElementById('obsA2').value,
+      sexoA2: document.getElementById('sexoA2').value, telA2: document.getElementById('telA2').value,
+
+      destino: document.getElementById('destino').value, motivo: document.getElementById('motivo').value, agendadoPor: document.getElementById('agendadoPor').value
     };
-  });
 
-  // Ordenação: Data (antiga->nova) e Hora
-  resultado.sort((a, b) => {
-    const partesA = a.data.split('/');
-    const partesB = b.data.split('/');
-    if (partesA.length !== 3) return 1;
-    if (partesB.length !== 3) return -1;
+    google.script.run.withSuccessHandler(res => {
+        mostrarStatus("✅ " + res, "sucesso", "status");
+        btn.disabled = false;
+
+        const finalizar = () => {
+            document.getElementById('formViagem').reset();
+            pacienteCarregado = false;
+            setAtualizarCadastroDisponivel(false);
+            toggleAcomp();
+            document.getElementById('status').style.display = 'none';
+            scrollToTop('smooth');
+        };
+
+        // Em alguns navegadores o window.print() altera a posição do scroll ao fechar o diálogo.
+        // Por isso, fazemos o reset + scroll no evento afterprint.
+        window.addEventListener('afterprint', finalizar, { once: true });
+
+        // Garante que inicia no topo antes de imprimir
+        scrollToTop('auto');
+        setTimeout(() => window.print(), 150);
+    }).withFailureHandler(err => {
+        const msg = err && err.message ? err.message : String(err);
+        if (msg.includes("PACIENTE JÁ CADASTRADO PARA ESTA DATA")) {
+            abrirModalDuplicidade(msg);
+        } else {
+            mostrarStatus("❌ Erro: " + msg, "erro", "status");
+        }
+        btn.disabled = false;
+    }).executarCadastroWeb(formObj);
+  }
+
+  function enviarCadastro() {
+    const btn = document.getElementById("btnSalvarCadastro");
+    const formCad = document.getElementById("formCadastro");
     
-    const dataA = new Date(partesA[2], partesA[1]-1, partesA[0]);
-    const dataB = new Date(partesB[2], partesB[1]-1, partesB[0]);
-
-    if (dataA < dataB) return -1;
-    if (dataA > dataB) return 1;
-    if (a.hora < b.hora) return -1;
-    if (a.hora > b.hora) return 1;
-    return 0;
-  });
-
-  return resultado;
-}
-
-// --- [NOVO] BUSCA LISTA DE NOMES PARA O AUTOCOMPLETE ---
-function getListaNomesBase(usuario, senha) {
-  exigirLogin(usuario, senha);
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const aba = ss.getSheetByName("BASE");
-  if (!aba) return [];
-  // Pega da linha 2 até o fim, coluna B (Nome)
-  return aba.getRange(2, 2, aba.getLastRow() - 1, 1).getValues().flat().filter(String);
-}
-
-// --- FUNÇÃO DE EXCLUSÃO (PACIENTE + ACOMPANHANTES) ---
-function excluirRegistroViagem(nome, dataInput, usuario, senha) {
-  exigirLogin(usuario, senha);
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const abaRel = ss.getSheetByName("RELATORIO");
-  let logMensagens = [];
-  let registrosApagados = 0;
-  
-  // 1. Tratamento da Data (Input vs Objeto)
-  const extrairData = (d) => {
-     if (!d) return null;
-     let dia, mes, ano;
-     if (d.includes("-")) { // Formato yyyy-mm-dd
-        const partes = d.split("-");
-        ano = parseInt(partes[0], 10); mes = parseInt(partes[1], 10); dia = parseInt(partes[2], 10);
-     } else if (d.includes("/")) { // Formato dd/mm/yyyy
-        const partes = d.split("/");
-        dia = parseInt(partes[0], 10); mes = parseInt(partes[1], 10); ano = parseInt(partes[2], 10);
-     } else { return null; }
-     return { dia, mes, ano };
-  };
-
-  const dataAlvo = extrairData(dataInput);
-  if (!dataAlvo) throw new Error("Data inválida.");
-
-  // 2. BUSCA NO RELATÓRIO (Para pegar os nomes dos acompanhantes ANTES de apagar)
-  const dadosRel = abaRel.getDataRange().getValues();
-  let nomeA1 = "";
-  let nomeA2 = "";
-  let encontrouRelatorio = false;
-
-  // Loop reverso para apagar
-  for (let i = dadosRel.length - 1; i >= 5; i--) { 
-    const nomePlanilha = String(dadosRel[i][2]).toUpperCase().trim();
-    if (nomePlanilha !== nome.toUpperCase().trim()) continue;
-
-    // Verifica Data
-    const celulaData = dadosRel[i][1]; 
-    let dF=0, mF=0, aF=0;
-    if (celulaData instanceof Date) {
-       dF = celulaData.getDate(); mF = celulaData.getMonth() + 1; aF = celulaData.getFullYear();
-    } else {
-       const partes = String(celulaData).split("/");
-       if (partes.length === 3) { dF=parseInt(partes[0]); mF=parseInt(partes[1]); aF=parseInt(partes[2]); if(aF<100) aF+=2000; }
-    }
-
-    if (dF === dataAlvo.dia && mF === dataAlvo.mes && (aF === dataAlvo.ano || aF === dataAlvo.ano - 2000)) {
-       // ACHOU! Salva os acompanhantes antes de deletar
-       nomeA1 = String(dadosRel[i][5]).trim(); // Coluna F (Acomp 1)
-       nomeA2 = String(dadosRel[i][7]).trim(); // Coluna H (Acomp 2)
-       
-       abaRel.deleteRow(i + 1);
-       registrosApagados++;
-       encontrouRelatorio = true;
-       logMensagens.push("Removido do Relatório.");
-       break; // Apaga apenas o registro específico e sai para processar as cidades
-    }
-  }
-
-  if (!encontrouRelatorio) {
-      throw new Error("Registro não encontrado no Relatório para esta data.");
-  }
-
-  // 3. DELETAR NAS ABAS DE CIDADE (Bloco de 14 linhas)
-  const abasCidades = [
-    "PALMAS", "PORTO NACIONAL", "ARRAIAS", "DIANÓPOLIS", 
-    "CAMPOS BELOS", "GURUPI"
-  ];
-
-  // Função interna para apagar um bloco específico de qualquer pessoa
-  const apagarBlocoPessoa = (aba, nomePessoa) => {
-      if (!nomePessoa) return;
-      const ultLinha = aba.getLastRow();
-      if (ultLinha < 17) return;
-
-      const rangeNomes = aba.getRange(17, 4, ultLinha - 16, 1).getValues();
-
-      for (let k = rangeNomes.length - 1; k >= 0; k--) {
-         if (String(rangeNomes[k][0]).toUpperCase().trim() === nomePessoa.toUpperCase().trim()) {
-            let linhaNome = 17 + k;
-            
-            // Confere Data
-            let celulaDt = aba.getRange(linhaNome + 10, 2).getValue();
-            let dF=0, mF=0, aF=0;
-            if (celulaDt instanceof Date) { dF=celulaDt.getDate(); mF=celulaDt.getMonth()+1; aF=celulaDt.getFullYear(); }
-            else { let p = String(celulaDt).split("/"); if(p.length===3) { dF=parseInt(p[0]); mF=parseInt(p[1]); aF=parseInt(p[2]); } }
-
-            if (dF === dataAlvo.dia && mF === dataAlvo.mes && (aF === dataAlvo.ano || aF === dataAlvo.ano - 2000)) {
-                try {
-                   aba.deleteRows(linhaNome - 2, 14); // Deleta o bloco inteiro
-                   logMensagens.push(`Bloco de ${nomePessoa} apagado em ${aba.getName()}.`);
-                } catch (e) {}
-                // Não damos break aqui pois teoricamente pode haver duplicidade e queremos limpar tudo
-            }
-         }
-      }
-  };
-
-  // Executa a varredura em todas as cidades
-  for (let cidade of abasCidades) {
-      const aba = ss.getSheetByName(cidade);
-      if (!aba) continue;
-
-      // 1. Apaga o Paciente Principal
-      apagarBlocoPessoa(aba, nome);
-
-      // 2. Apaga Acompanhante 1 (se existir)
-      if (nomeA1 && nomeA1.length > 2) {
-          apagarBlocoPessoa(aba, nomeA1);
-      }
-
-      // 3. Apaga Acompanhante 2 (se existir)
-      if (nomeA2 && nomeA2.length > 2) {
-          apagarBlocoPessoa(aba, nomeA2);
-      }
-  }
-
-  return `✅ Paciente e Acompanhantes excluídos com sucesso!`;
-}
-
-// --- FUNÇÃO MESTRE DE EDIÇÃO (CORRIGIDA: OBS ACOMP 2) ---
-function editarRegistroViagem(dados, usuario, senha) {
-  exigirLogin(usuario, senha);
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const abaRel = ss.getSheetByName("RELATORIO");
-  const abaBase = ss.getSheetByName("BASE");
-  
-  console.log("Iniciando Edição para:", dados.nome);
-
-  // --- 1. PREPARAÇÃO ---
-  const nomeBuscado = dados.nome.toUpperCase().trim();
-  const responsavel = dados.responsavel;
-  const novoHorarioInput = dados.novoHorario;
-
-  const extrairDataInput = (d) => {
-     if (!d) return null;
-     let dia, mes, ano;
-     if (d.includes("-")) { 
-        const partes = d.split("-");
-        ano = parseInt(partes[0], 10); mes = parseInt(partes[1], 10); dia = parseInt(partes[2], 10);
-     } else if (d.includes("/")) { 
-        const partes = d.split("/");
-        dia = parseInt(partes[0], 10); mes = parseInt(partes[1], 10); ano = parseInt(partes[2], 10);
-     } else { return null; }
-     return { dia: dia, mes: mes, ano: ano, original: `${("0" + dia).slice(-2)}/${("0" + mes).slice(-2)}/${ano}` };
-  };
-
-  const descobrirAbaInterna = (destino) => {
-      if (!destino) return null;
-      const d = destino.toUpperCase().trim();
-      const mapa = {
-        "CONCEIÇÃO/PALMAS": "PALMAS", "CONCEIÇÃO/PALMAS - CARRO": "PALMAS",
-        "PALMAS/CONCEIÇÃO": "PALMAS", "PALMAS/CONCEIÇÃO - CARRO": "PALMAS",
-        "CONCEIÇÃO/PORTO NACIONAL": "PORTO NACIONAL", "CONCEIÇÃO/PORTO NACIONAL - CARRO": "PORTO NACIONAL",
-        "PORTO NACIONAL/CONCEIÇÃO": "PORTO NACIONAL", "PORTO NACIONAL/CONCEIÇÃO - CARRO": "PORTO NACIONAL",
-        "CONCEIÇÃO/ARRAIAS": "ARRAIAS", "ARRAIAS/CONCEIÇÃO": "ARRAIAS",
-        "CONCEIÇÃO/DIANÓPOLIS": "DIANÓPOLIS", "DIANÓPOLIS/CONCEIÇÃO": "DIANÓPOLIS",
-        "CONCEIÇÃO/CAMPOS BELOS": "CAMPOS BELOS", "CONCEIÇÃO/GURUPI": "GURUPI"
-      };
-      if (mapa[d]) return mapa[d];
-      if (d.includes("PALMAS")) return "PALMAS";
-      if (d.includes("PORTO")) return "PORTO NACIONAL";
-      if (d.includes("ARRAIAS")) return "ARRAIAS";
-      if (d.includes("DIANÓPOLIS")) return "DIANÓPOLIS";
-      if (d.includes("CAMPOS BELOS")) return "CAMPOS BELOS";
-      if (d.includes("GURUPI")) return "GURUPI";
-      return null;
-  };
-
-  const resgatarDadosPessoa = (nomePessoa, abaOrigem, dataAlvoObj) => {
-      let resultado = { sexo: "", nasc: "", endereco: "", bairro: "", telefone: "" };
-      if (!nomePessoa || !abaOrigem) return resultado;
-      
-      const nomeUpper = nomePessoa.toUpperCase().trim();
-      const ult = abaOrigem.getLastRow();
-      if (ult < 17) return resultado;
-
-      const rangeNomes = abaOrigem.getRange(17, 4, ult-16, 1).getValues(); 
-      for(let k = rangeNomes.length - 1; k >= 0; k--){
-          if(String(rangeNomes[k][0]).toUpperCase().trim() === nomeUpper) {
-              let linhaNome = 17 + k;
-              let celulaDt = abaOrigem.getRange(linhaNome+10, 2).getValue();
-              let dF=0, mF=0, aF=0;
-              if(celulaDt instanceof Date) { dF=celulaDt.getDate(); mF=celulaDt.getMonth()+1; aF=celulaDt.getFullYear(); }
-              else { let p = String(celulaDt).split("/"); if(p.length===3) { dF=parseInt(p[0]); mF=parseInt(p[1]); aF=parseInt(p[2]); } }
-
-              if (dF === dataAlvoObj.dia && mF === dataAlvoObj.mes && (aF === dataAlvoObj.ano || aF === dataAlvoObj.ano-2000)) {
-                  resultado.sexo = abaOrigem.getRange(linhaNome, 10).getValue();
-                  resultado.nasc = abaOrigem.getRange(linhaNome + 3, 2).getValue();
-                  resultado.endereco = abaOrigem.getRange(linhaNome + 6, 2).getValue();
-                  resultado.bairro = abaOrigem.getRange(linhaNome + 6, 6).getValue();
-                  resultado.telefone = abaOrigem.getRange(linhaNome + 6, 8).getValue();
-                  return resultado;
-              }
-          }
-      }
-      return resultado;
-  };
-
-  const dataAntigaObj = extrairDataInput(dados.dataAntiga);
-  const dataNovaObj = extrairDataInput(dados.dataNova);
-  
-  if (!dataAntigaObj || !dataNovaObj) throw new Error("Data inválida.");
-
-  // --- 2. LOCALIZAR NO RELATÓRIO ---
-  const dadosRel = abaRel.getDataRange().getValues(); 
-  let linhaRel = -1;
-  let destinoAntigo = ""; let motivoAntigo = ""; let horaAntiga = "";
-  let cpfRelatorio = ""; 
-  let temAcompAntigo = "NÃO";
-  let nomeAcomp1Antigo = ""; let cpfAcomp1Antigo = "";
-  let nomeAcomp2Antigo = ""; let cpfAcomp2Antigo = "";
-  let obsAcomp2Antigo = ""; 
-
-  for (let i = dadosRel.length - 1; i >= 1; i--) {
-    const nomePlanilha = String(dadosRel[i][2]).toUpperCase().trim(); 
-    if (nomePlanilha !== nomeBuscado) continue;
-
-    const celulaData = dadosRel[i][1]; 
-    let diaP = 0, mesP = 0, anoP = 0;
-    if (celulaData instanceof Date) {
-       diaP = celulaData.getDate(); mesP = celulaData.getMonth() + 1; anoP = celulaData.getFullYear();
-    } else {
-       const partes = String(celulaData).split("/");
-       if (partes.length === 3) {
-          diaP = parseInt(partes[0], 10); mesP = parseInt(partes[1], 10); anoP = parseInt(partes[2], 10);
-          if (anoP < 100) anoP += 2000; 
-       }
-    }
-
-    if (diaP === dataAntigaObj.dia && mesP === dataAntigaObj.mes && (anoP === dataAntigaObj.ano || anoP === dataAntigaObj.ano - 2000)) {
-       linhaRel = i + 1; 
-       cpfRelatorio = String(dadosRel[i][3]);        
-       temAcompAntigo = String(dadosRel[i][4]);   
-       nomeAcomp1Antigo = String(dadosRel[i][5]); cpfAcomp1Antigo = String(dadosRel[i][6]);  
-       nomeAcomp2Antigo = String(dadosRel[i][7]); cpfAcomp2Antigo = String(dadosRel[i][8]);  
-       motivoAntigo = String(dadosRel[i][9]);     
-       destinoAntigo = String(dadosRel[i][10]);   
-       horaAntiga = String(dadosRel[i][11]);
-       
-       obsAcomp2Antigo = String(dadosRel[i][13]); 
-       
-       break;
-    }
-  }
-
-  if (linhaRel === -1) throw new Error(`Registro não encontrado!`);
-
-  const horaFinal = novoHorarioInput ? novoHorarioInput : horaAntiga;
-  const destinoNovoNorm = dados.novoDestino.trim();
-  const destinoAntigoNorm = destinoAntigo.trim();
-  const mudouDestino = (destinoNovoNorm !== destinoAntigoNorm);
-  
-  const obsAcomp2Final = dados.novaObsA2 ? dados.novaObsA2 : obsAcomp2Antigo;
-
-  // === CENÁRIO A: MUDOU O DESTINO ===
-  if (mudouDestino) {
-      
-      let dadosPrincipal = { sexo: "", nasc: "", endereco: "", bairro: "", telefone: "" };
-      let dadosA1 = { sexo: "", nasc: "", endereco: "", bairro: "", telefone: "" };
-      let dadosA2 = { sexo: "", nasc: "", endereco: "", bairro: "", telefone: "" };
-
-      const nomeAbaOrigem = descobrirAbaInterna(destinoAntigoNorm);
-      if (nomeAbaOrigem) {
-          const abaOrigem = ss.getSheetByName(nomeAbaOrigem);
-          if (abaOrigem) {
-              dadosPrincipal = resgatarDadosPessoa(nomeBuscado, abaOrigem, dataAntigaObj);
-              if(nomeAcomp1Antigo) dadosA1 = resgatarDadosPessoa(nomeAcomp1Antigo, abaOrigem, dataAntigaObj);
-              if(nomeAcomp2Antigo) dadosA2 = resgatarDadosPessoa(nomeAcomp2Antigo, abaOrigem, dataAntigaObj);
-          }
-      }
-
-      const dadosBase = abaBase.getDataRange().getDisplayValues();
-      let pacienteBase = null;
-      for(let i=1; i<dadosBase.length; i++) {
-         if(dadosBase[i][0].toString().toUpperCase().trim() === nomeBuscado) { 
-             pacienteBase = { cpf: dadosBase[i][1], nasc: dadosBase[i][2], endereco: dadosBase[i][4], bairro: dadosBase[i][6], telefone: dadosBase[i][8], sexo: dadosBase[i][9] };
-             break;
-         }
-      }
-      
-      let cpfFinal = pacienteBase ? pacienteBase.cpf : (cpfRelatorio || "VERIFICAR");
-      let sexoFinal = pacienteBase ? pacienteBase.sexo : dadosPrincipal.sexo;
-      let nascFinal = pacienteBase ? pacienteBase.nasc : dadosPrincipal.nasc;
-      let endFinal = pacienteBase ? pacienteBase.endereco : (dadosPrincipal.endereco || "VERIFICAR CADASTRO");
-      let bairFinal = pacienteBase ? pacienteBase.bairro : dadosPrincipal.bairro;
-      let telFinal = pacienteBase ? pacienteBase.telefone : dadosPrincipal.telefone;
-
-      const novoPacote = {
-         usuario: usuario,
-         senha: senha,
-         data: dados.dataNova, 
-         nome: nomeBuscado, cpf: cpfFinal, sexo: sexoFinal, dtNasc: nascFinal,
-         endereco: endFinal, bairro: bairFinal, telefone: telFinal,
-         destino: destinoNovoNorm, motivo: dados.novoMotivo || motivoAntigo, 
-         obs: dados.novaObs,
-         hora: horaFinal, agendadoPor: responsavel,
-         
-         temAcomp: temAcompAntigo, 
-         nomeA1: nomeAcomp1Antigo, cpfA1: cpfAcomp1Antigo,
-         sexoA1: dadosA1.sexo, nascA1: dadosA1.nasc, endA1: dadosA1.endereco, bairA1: dadosA1.bairro,
-
-         nomeA2: nomeAcomp2Antigo, cpfA2: cpfAcomp2Antigo,
-         sexoA2: dadosA2.sexo, nascA2: dadosA2.nasc, endA2: dadosA2.endereco, bairA2: dadosA2.bairro,
-         
-         obsA2: obsAcomp2Final 
-      };
-
-      try { processarGravacao(novoPacote); } 
-      catch (e) { throw new Error("Erro ao criar novo registro: " + e.message); }
-
-      abaRel.deleteRow(linhaRel);
-      
-      if (nomeAbaOrigem) {
-         const abaDest = ss.getSheetByName(nomeAbaOrigem);
-         if (abaDest) {
-             const deletarBloco = (nm) => {
-                 if(!nm) return;
-                 const rng = abaDest.getRange(17, 4, abaDest.getLastRow()-16, 1).getValues();
-                 for(let k=rng.length-1; k>=0; k--){
-                     if(String(rng[k][0]).toUpperCase().trim() === nm.toUpperCase().trim()){
-                         let l = 17+k;
-                         let cDt = abaDest.getRange(l+10, 2).getValue();
-                         let d=0,m=0,a=0;
-                         if(cDt instanceof Date){d=cDt.getDate();m=cDt.getMonth()+1;a=cDt.getFullYear();}
-                         else{let p=String(cDt).split("/");if(p.length===3){d=parseInt(p[0]);m=parseInt(p[1]);a=parseInt(p[2]);}}
-                         if (d === dataAntigaObj.dia && m === dataAntigaObj.mes && (a === dataAntigaObj.ano || a === dataAntigaObj.ano-2000)) {
-                             try{abaDest.deleteRows(l-2, 14);}catch(e){}
-                         }
-                     }
-                 }
-             };
-             deletarBloco(nomeBuscado);
-             deletarBloco(nomeAcomp1Antigo);
-             deletarBloco(nomeAcomp2Antigo);
-         }
-      }
-      return "🔄 Transferido (com acomp.) para " + destinoNovoNorm;
-  }
-
-  // === CENÁRIO B: MESMO DESTINO ===
-  else {
-      abaRel.getRange(linhaRel, 2).setValue(dataNovaObj.original); 
-      abaRel.getRange(linhaRel, 11).setValue(destinoNovoNorm);     
-      abaRel.getRange(linhaRel, 12).setValue(horaFinal);           
-      abaRel.getRange(linhaRel, 16).setValue(responsavel);         
-      if (dados.novoMotivo) abaRel.getRange(linhaRel, 10).setValue(dados.novoMotivo); 
-      if (dados.novaObs) abaRel.getRange(linhaRel, 13).setValue(dados.novaObs);       
-      
-      if (obsAcomp2Final) abaRel.getRange(linhaRel, 14).setValue(obsAcomp2Final);
-
-      const dataMudou = (dataAntigaObj.dia !== dataNovaObj.dia || dataAntigaObj.mes !== dataNovaObj.mes || dataAntigaObj.ano !== dataNovaObj.ano);
-      
-      if (dataMudou) {
-          const nomeAba = descobrirAbaInterna(destinoAntigoNorm);
-          if (nomeAba) {
-             const abaDest = ss.getSheetByName(nomeAba);
-             if (abaDest) {
-                 const atualizarBloco = (nm) => {
-                     if(!nm) return;
-                     const rng = abaDest.getRange(17, 4, abaDest.getLastRow()-16, 1).getValues();
-                     for(let k=rng.length-1; k>=0; k--){
-                         if(String(rng[k][0]).toUpperCase().trim() === nm.toUpperCase().trim()){
-                             let l = 17+k;
-                             let cDt = abaDest.getRange(l+10, 2);
-                             let vDt = cDt.getValue();
-                             let d=0,m=0,a=0;
-                             if(vDt instanceof Date){d=vDt.getDate();m=vDt.getMonth()+1;a=vDt.getFullYear();}
-                             else{let p=String(vDt).split("/");if(p.length===3){d=parseInt(p[0]);m=parseInt(p[1]);a=parseInt(p[2]);}}
-                             if (d === dataAntigaObj.dia && m === dataAntigaObj.mes && (a === dataAntigaObj.ano || a === dataAntigaObj.ano-2000)) {
-                                 cDt.setValue(dataNovaObj.original);
-                             }
-                         }
-                     }
-                 };
-                 atualizarBloco(nomeBuscado);
-                 atualizarBloco(nomeAcomp1Antigo);
-                 atualizarBloco(nomeAcomp2Antigo);
-             }
-          }
-      }
-      return "✅ Atualizado (com acomp.) para " + dataNovaObj.original + " às " + horaFinal;
-  }
-}
-
-function buscarResumoMensal(mesAno, usuario, senha) {
-  exigirLogin(usuario, senha);
-  if (!/^\d{2}\/\d{4}$/.test(mesAno)) {
-    throw new Error("Formato inválido. Use MM/YYYY");
-  }
-
-  const ss = SpreadsheetApp.openById("1lVo6qu0m-Pw-Cph7prFeuD3fEAMa7LYD2InzKPKNKnE");
-  const aba = ss.getSheetByName("RELATORIO");
-  if (!aba) throw new Error("Aba RELATORIO não encontrada");
-
-  // Definimos as rotas
-  const rotasPermitidas = [
-    "CONCEIÇÃO/PALMAS",
-    "PALMAS/CONCEIÇÃO",
-    "CONCEIÇÃO/PORTO NACIONAL",
-    "PORTO NACIONAL/CONCEIÇÃO"
-  ];
-
-  // Pega os dados a partir da linha 7
-  const dados = aba.getRange(7, 1, aba.getLastRow() - 6, 16).getDisplayValues();
-
-  const resumo = [
-    { num: 1, passagem: "IDA E VOLTA C/ ACOMPANHANTE", pacientes: 0, acompanhantes: 0, total: 0 },
-    { num: 2, passagem: "IDA E VOLTA S/ ACOMPANHANTE", pacientes: 0, acompanhantes: 0, total: 0 },
-    { num: 3, passagem: "SÓ IDA COM ACOMPANHANTE", pacientes: 0, acompanhantes: 0, total: 0 },
-    { num: 4, passagem: "SÓ IDA SEM ACOMPANHANTE", pacientes: 0, acompanhantes: 0, total: 0 },
-    { num: 5, passagem: "SÓ VOLTA C/ ACOMPANHANTE", pacientes: 0, acompanhantes: 0, total: 0 },
-    { num: 6, passagem: "SÓ VOLTA S/ ACOMPANHANTE", pacientes: 0, acompanhantes: 0, total: 0 }
-  ];
-
-  dados.forEach(l => {
-    // -----------------------------------------------------------
-    // 1. FILTRO DE ROTA 
-    // -----------------------------------------------------------
-    const rota = String(l[10]).trim();
-    if (!rotasPermitidas.includes(rota)) return; // Pula se a rota não for permitida
-
-    // -----------------------------------------------------------
-    // 2. FILTRO DE DATA
-    // -----------------------------------------------------------
-    const dataStr = l[1];
-    if (!dataStr) return;
-
-    let data; // <--- ERRO 1 CORRIGIDO: Tinha um "}" aqui que não devia
-    if (dataStr instanceof Date) {
-      data = dataStr;
-    } else {
-      const p = dataStr.split("/");
-      if (p.length !== 3) return;
-      data = new Date(p[2], p[1] - 1, p[0]);
-    }
-
-    const ref = Utilities.formatDate(data, Session.getScriptTimeZone(), "MM/yyyy");
-    if (ref !== mesAno) return; // Pula se não for o mês escolhido
-
-    // -----------------------------------------------------------
-    // 3. CONTAGEM E LÓGICA
-    // -----------------------------------------------------------
-    const tipo = (l[12] || "").toUpperCase().trim(); // Obs (Tipo)
-    // l[5] = Nome Acomp 1, l[7] = Nome Acomp 2
-    const acompQtd = (l[5] ? 1 : 0) + (l[7] ? 1 : 0);
-
-    let linha = null;
-    let viagensPaciente = 0;
-    let viagensAcomp = 0;
-    let multiplicador = 1;
-
-    if (tipo === "IDA E VOLTA") {
-      viagensPaciente = 1;
-      viagensAcomp = acompQtd;
-      multiplicador = 2; // ⚠️ Define que passagens são dobradas
-      linha = acompQtd > 0 ? resumo[0] : resumo[1];
-    } 
-    else if (tipo === "SÓ IDA") {
-      viagensPaciente = 1;
-      viagensAcomp = acompQtd;
-      linha = acompQtd > 0 ? resumo[2] : resumo[3];
-    } 
-    else if (tipo === "SÓ VOLTA") {
-      viagensPaciente = 1;
-      viagensAcomp = acompQtd;
-      linha = acompQtd > 0 ? resumo[4] : resumo[5];
-    }
-
-    if (linha) {
-      linha.pacientes += viagensPaciente;
-      linha.acompanhantes += viagensAcomp;
-      // <--- ERRO 2 CORRIGIDO: Adicionei o "(" antes de viagensPaciente
-      linha.total += (viagensPaciente + viagensAcomp) * multiplicador;
-    } // <--- ERRO 3 CORRIGIDO: Faltava fechar esse if
+    // Validação nativa para cadastro
+    if (!formCad.checkValidity()) { formCad.reportValidity(); return; }
     
-  });
+    btn.disabled = true; mostrarStatus("Salvando na base...", "info", "statusCadastro");
+    
+    const dadosCadastro = {
+       usuario: localStorage.getItem("sms_user"), senha: localStorage.getItem("sms_pass"),
+       nome: document.getElementById("cadNome").value, cpf: document.getElementById("cadCpf").value, nasc: document.getElementById("cadNasc").value,
+       idade: document.getElementById("cadIdade").value, sexo: document.getElementById("cadSexo").value,
+       telefone: document.getElementById("cadTelefone").value, cep: document.getElementById("cadCep").value,
+       endereco: document.getElementById("cadEndereco").value, bairro: document.getElementById("cadBairro").value,
+       numero: document.getElementById("cadNumero").value
+    };
 
-  return resumo;
-}
+    google.script.run.withSuccessHandler(res => {
+          mostrarStatus("✅ " + res, "sucesso", "statusCadastro"); btn.disabled = false;
+          limparCadastro(); 
+          carregarBancoDeDados(dadosCadastro.usuario, dadosCadastro.senha);
+          // Rola para o topo DEPOIS de salvar
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+    }).withFailureHandler(err => { mostrarStatus("❌ Erro: " + err.message, "erro", "statusCadastro"); btn.disabled = false; }).salvarNovoPaciente(dadosCadastro);
+  }
+</script>
+</body>
+</html>
