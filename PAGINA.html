@@ -43,6 +43,14 @@
     button:disabled { background-color: #ccc; cursor: not-allowed; }
     #status, #statusCadastro { margin-top: 15px; font-weight: bold; padding: 10px; border-radius: 4px; text-align: center; display: none; width: 100%; max-width: 300px; }
 
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.55); display: none; align-items: center; justify-content: center; z-index: 10001; }
+    .modal-overlay.active { display: flex; }
+    .modal-box { background: #fff; border-radius: 10px; padding: 24px; max-width: 420px; width: 90%; box-shadow: 0 10px 30px rgba(0,0,0,0.2); text-align: center; }
+    .modal-title { font-size: 1.1rem; font-weight: 700; color: #c0392b; margin: 0 0 12px 0; }
+    .modal-message { font-size: 0.95rem; color: #333; margin-bottom: 18px; }
+    .modal-actions { display: flex; justify-content: center; gap: 10px; }
+    .modal-btn { background-color: var(--primary); color: #fff; border: none; padding: 10px 18px; border-radius: 6px; font-weight: 600; cursor: pointer; }
+
     .footer-assinatura { margin-top: 40px; text-align: center; width: 100%; }
     .texto-cidade { font-weight: bold; text-transform: uppercase; margin-bottom: 40px; color: #000; }
     .linha-assinatura { width: 60%; margin: 0 auto; border-top: 1px solid #000; padding-top: 5px; font-weight: bold; }
@@ -229,26 +237,34 @@
           </select>
         </div>
 
+       
         <div class="col-12"><h3>Dados do Paciente</h3></div>
-        
-        <div class="col-12">
+        <div class="col-6">
           <label>Nome do Paciente *</label>
-          <input type="text" id="nome" list="listaNomes" oninput="debouncedBusca(this.value, 'P')" placeholder="Digite 3 letras para buscar..." autocomplete="off" required>
+        <input type="text" id="nome" list="listaNomes" oninput="mascaraNome(this); debouncedBusca(this.value, 'P')" placeholder="Digite 3 letras para buscar..." autocomplete="off" required>
           <datalist id="listaNomes"></datalist>
         </div>
+        <div class="col-3"><label>CPF/CNS *</label><input type="text" id="cpf" required oninput="mascaraCpfCns(this)"></div>
+        <div class="col-3"><label>Telefone *</label><input type="text" id="telefone" required oninput="mascaraTelefone(this)"></div>
 
-        <div class="col-6"><label>CPF/CNS *</label><input type="text" id="cpf" required></div>
-        <div class="col-6"><label>Data Nasc. *</label><input type="text" id="dtNasc" required></div>
-        
+
+        <div class="col-4"><label>Data Nasc. *</label><input type="text" id="dtNasc" required oninput="mascaraData(this)"></div>
+        <div class="col-4"><label>Idade</label><input type="number" id="idade"></div>
         <div class="col-4"><label>Sexo *</label>
           <select id="sexo" required><option value="">--</option><option value="M">M</option><option value="F">F</option></select>
         </div>
-        <div class="col-4"><label>Idade</label><input type="number" id="idade"></div>
-        <div class="col-4"><label>CEP *</label><input type="text" id="cep" required></div>
         
-        <div class="col-8"><label>Endereço *</label><input type="text" id="endereco" required></div>
-        <div class="col-4"><label>Bairro *</label><input type="text" id="bairro" required></div>
-        <div class="col-4"><label>Telefone *</label><input type="text" id="telefone" required></div>
+      
+        <div class="col-6"><label>Endereço *</label><input type="text" id="endereco" required oninput="this.value = this.value.toUpperCase()"></div>
+        <div class="col-3"><label>Bairro *</label><input type="text" id="bairro" required oninput="this.value = this.value.toUpperCase()"></div>
+        <div class="col-3"><label>CEP *</label><input type="text" id="cep" required></div>
+        
+        <div class="col-4">
+          <label>Atualizar cadastro? *</label>
+          <select id="atualizarCadastro" required>
+            <option value="">-- SELECIONE --</option><option value="SIM">SIM</option><option value="NÃO">NÃO</option>
+          </select>
+        </div>
         
         <div class="col-4">
           <label>Tipo de Viagem *</label>
@@ -270,42 +286,44 @@
         <div id="secAcomp1" class="col-12" style="display:none;">
           <h3>Acompanhante 1</h3>
           <div class="grid">
-              <div class="col-8">
-                  <label>Nome Acomp 1 *</label>
-                  <input type="text" id="nomeA1" list="listaNomesA1" oninput="debouncedBusca(this.value, 'A1')" placeholder="Buscar..." autocomplete="off">
-                  <datalist id="listaNomesA1"></datalist>
+             <div class="col-8">
+              <label>Nome Acomp 1 *</label>
+              <input type="text" id="nomeA1" list="listaNomesA1" oninput="mascaraNome(this); debouncedBusca(this.value, 'A1')" placeholder="Buscar..." autocomplete="off">
+              <datalist id="listaNomesA1"></datalist>
               </div>
-              <div class="col-4"><label>CPF/CNS *</label><input type="text" id="cpfA1"></div>
-              
-              <div class="col-4"><label>Data Nasc. *</label><input type="text" id="nascA1"></div>
-              <div class="col-4"><label>Sexo *</label>
-                <select id="sexoA1"><option value="">--</option><option value="M">M</option><option value="F">F</option></select>
-              </div>
+              <div class="col-4"><label>CPF/CNS *</label><input type="text" id="cpfA1" oninput="mascaraCpfCns(this)"></div>
               <div class="col-4"><label>Telefone *</label><input type="text" id="telA1" oninput="mascaraTelefone(this)"></div>
 
-              <div class="col-8"><label>Endereço *</label><input type="text" id="endA1"></div>
-              <div class="col-4"><label>Bairro *</label><input type="text" id="bairA1"></div>
+              
+              <div class="col-4"><label>Data Nasc. *</label><input type="text" id="nascA1" oninput="mascaraData(this)"></div>
+              <div class="col-4"><label>Sexo *</label>
+              <select id="sexoA1"><option value="">--</option><option value="M">M</option><option value="F">F</option></select>
+              </div>
+
+              <div class="col-8"><label>Endereço *</label><input type="text" id="endA1" oninput="this.value = this.value.toUpperCase()"></div>
+              <div class="col-4"><label>Bairro *</label><input type="text" id="bairA1" oninput="this.value = this.value.toUpperCase()"></div>
           </div>
         </div>
 
         <div id="secAcomp2" class="col-12" style="display:none;">
           <h3>Acompanhante 2</h3>
           <div class="grid">
-              <div class="col-8">
-                  <label>Nome Acomp 2 *</label>
-                  <input type="text" id="nomeA2" list="listaNomesA2" oninput="debouncedBusca(this.value, 'A2')" placeholder="Buscar..." autocomplete="off">
-                  <datalist id="listaNomesA2"></datalist>
+            <div class="col-8">
+              <label>Nome Acomp 2 *</label>
+              <input type="text" id="nomeA2" list="listaNomesA2" oninput="mascaraNome(this); debouncedBusca(this.value, 'A2')" placeholder="Buscar..." autocomplete="off">
+                 <datalist id="listaNomesA2"></datalist>
               </div>
-              <div class="col-4"><label>CPF/CNS *</label><input type="text" id="cpfA2"></div>
-
-              <div class="col-4"><label>Data Nasc. *</label><input type="text" id="nascA2"></div>
+              <div class="col-4"><label>CPF/CNS *</label><input type="text" id="cpfA2" oninput="mascaraCpfCns(this)"></div>
+              <div class="col-4"><label>Telefone *</label><input type="text" id="telA2" oninput="mascaraTelefone(this)"></div>
+              
+              <div class="col-4"><label>Data Nasc. *</label><input type="text" id="nascA2" oninput="mascaraData(this)"></div>
               <div class="col-4"><label>Sexo *</label>
                 <select id="sexoA2"><option value="">--</option><option value="M">M</option><option value="F">F</option></select>
               </div>
-              <div class="col-4"><label>Telefone *</label><input type="text" id="telA2" oninput="mascaraTelefone(this)"></div>
+              
 
-              <div class="col-8"><label>Endereço *</label><input type="text" id="endA2"></div>
-              <div class="col-4"><label>Bairro *</label><input type="text" id="bairA2"></div>
+              <div class="col-8"><label>Endereço *</label><input type="text" id="endA2" oninput="this.value = this.value.toUpperCase()"></div>
+              <div class="col-4"><label>Bairro *</label><input type="text" id="bairA2" oninput="this.value = this.value.toUpperCase()"></div>
               
               <div class="col-12">
                   <label>Tipo de Viagem (Acomp. 2)</label>
@@ -391,8 +409,8 @@
         <div class="col-4"><label>CEP</label><input type="text" id="cadCep" value="77.305-000" readonly style="background-color: #e9ecef;"></div>
         <div class="col-6"><label>Endereço *</label><input type="text" id="cadEndereco" required oninput="this.value = this.value.toUpperCase()"></div>
         <div class="col-2"><label>Nº</label><input type="text" id="cadNumero" value="S/N" readonly style="background-color: #e9ecef; text-align: center;"></div>
-        <div class="col-12"><label>Bairro *</label><input type="text" id="cadBairro" required oninput="this.value = this.value.toUpperCase()"></div>
-      </div>
+      <div class="col-12"><label>Bairro *</label><input type="text" id="cadBairro" required oninput="this.value = this.value.toUpperCase()"></div>
+    </div>
       <div class="container-botao" style="flex-direction: row; justify-content: center;">
         <button type="button" onclick="limparCadastro()" style="background-color: #6c757d; margin-right: 10px; max-width: 150px;">LIMPAR</button>
         <button type="submit" id="btnSalvarCadastro" style="max-width: 200px;">SALVAR NA BASE</button>
@@ -402,9 +420,20 @@
   </div>
 </div>
 
+<div id="dupModal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="dupModalTitle" aria-describedby="dupModalMessage">
+  <div class="modal-box">
+    <div id="dupModalTitle" class="modal-title">Atenção</div>
+    <div id="dupModalMessage" class="modal-message"></div>
+    <div class="modal-actions">
+      <button type="button" class="modal-btn" onclick="fecharModalDuplicidade()">OK</button>
+    </div>
+  </div>
+</div>
+
 <script>
   const CREDENCIAIS = { "alsiony": "cko170560", "fernando": "#Caramelo1006", "gleicyane": "cko170560" };
   let bancoDeDados = [];
+  let pacienteCarregado = false;
   const TEMPO_SESSAO_MINUTOS = 240;
 
   window.onload = function() {
@@ -414,6 +443,7 @@
       const ano = hoje.getFullYear();
       document.getElementById('dataImpressao').innerText = `CONCEIÇÃO DO TOCANTINS-TO, ${dia}/${mes}/${ano}`;
       verificarSessaoSalva();
+      setAtualizarCadastroDisponivel(false);
       toggleAcomp(); // Inicia com o estado correto
   };
 
@@ -501,6 +531,10 @@
     const datalist = document.getElementById(idDatalist);
     const pacienteEncontrado = bancoDeDados.find(x => x.nome.toUpperCase() === valor.toUpperCase());
     if (pacienteEncontrado) preencherCampos(pacienteEncontrado, tipo);
+    if (tipo === 'P' && !pacienteEncontrado) {
+      pacienteCarregado = false;
+      setAtualizarCadastroDisponivel(false);
+    }
     if (valor.length < 3) { datalist.innerHTML = ''; return; }
     datalist.innerHTML = ''; 
     const sugestoes = bancoDeDados.filter(p => p.nome.toUpperCase().includes(valor.toUpperCase())).slice(0, 10); 
@@ -514,6 +548,8 @@
       document.getElementById('endereco').value = p.endereco || ""; document.getElementById('bairro').value = p.bairro || "";
       document.getElementById('telefone').value = p.telefone || ""; document.getElementById('idade').value = p.idade || "";
       document.getElementById('cep').value = p.cep || ""; document.getElementById('sexo').value = (p.sexo && p.sexo.substring(0,1).toUpperCase()) || "";
+      pacienteCarregado = true;
+      setAtualizarCadastroDisponivel(true);
     } else if (tipo === 'A1') {
       document.getElementById('cpfA1').value = p.cpf || ""; document.getElementById('nascA1').value = p.nasc || "";
       document.getElementById('endA1').value = p.endereco || ""; document.getElementById('bairA1').value = p.bairro || "";
@@ -532,6 +568,13 @@
     const temAcomp = document.getElementById('temAcomp').value === "SIM";
     document.getElementById('secAcomp1').style.display = temAcomp ? "block" : "none";
     document.getElementById('secAcomp2').style.display = temAcomp ? "block" : "none";
+  }
+
+  function setAtualizarCadastroDisponivel(ativo) {
+    const sel = document.getElementById('atualizarCadastro');
+    if (!sel) return;
+    sel.disabled = !ativo;
+    if (!ativo) sel.value = "";
   }
 
   // --- Função auxiliar para atribuir 'required' dinamicamente ---
@@ -560,11 +603,28 @@
       }
   }
 
+  function abrirModalDuplicidade(mensagem) {
+    const modal = document.getElementById('dupModal');
+    const msgEl = document.getElementById('dupModalMessage');
+    const status = document.getElementById('status');
+    if (msgEl) msgEl.innerText = mensagem;
+    if (status) status.style.display = 'none';
+    modal.classList.add('active');
+}
+
+function fecharModalDuplicidade() {
+    const modal = document.getElementById('dupModal');
+    const msgEl = document.getElementById('dupModalMessage');
+    modal.classList.remove('active');
+    if (msgEl) msgEl.innerText = '';
+}
+
   function enviar() {
     const btn = document.getElementById("btnEnviar");
     const form = document.getElementById('formViagem');
     const temAcomp = document.getElementById("temAcomp").value;
     const nomeA2 = document.getElementById('nomeA2').value.trim(); // Gatilho pelo NOME
+    const atualizarCadastro = document.getElementById('atualizarCadastro').value;
 
     // --- REGRAS DE VALIDAÇÃO (BALÃOZINHO NATIVO) ---
     
@@ -585,14 +645,21 @@
         form.reportValidity(); // Mostra o balão onde falta preencher
         return;
     }
+    if (atualizarCadastro === "SIM" && !pacienteCarregado) {
+        mostrarStatus("Selecione um paciente da base para atualizar.", "erro", "status");
+        return;
+    }
 
     btn.disabled = true; mostrarStatus("Gravando dados...", "info", "status");
     
     const formObj = {
+      usuario: localStorage.getItem("sms_user"),
+      senha: localStorage.getItem("sms_pass"),
       data: document.getElementById('data').value, hora: document.getElementById('hora').value,
       nome: document.getElementById('nome').value, cpf: document.getElementById('cpf').value, dtNasc: document.getElementById('dtNasc').value,
       sexo: document.getElementById('sexo').value, idade: document.getElementById('idade').value, cep: document.getElementById('cep').value,
       endereco: document.getElementById('endereco').value, bairro: document.getElementById('bairro').value, telefone: document.getElementById('telefone').value,
+      atualizarCadastro: document.getElementById('atualizarCadastro').value,
       temAcomp: temAcomp, obs: document.getElementById('obs').value,
       
       nomeA1: document.getElementById('nomeA1').value, cpfA1: document.getElementById('cpfA1').value, nascA1: document.getElementById('nascA1').value,
@@ -612,6 +679,8 @@
 
         const finalizar = () => {
             document.getElementById('formViagem').reset();
+            pacienteCarregado = false;
+            setAtualizarCadastroDisponivel(false);
             toggleAcomp();
             document.getElementById('status').style.display = 'none';
             scrollToTop('smooth');
@@ -624,7 +693,15 @@
         // Garante que inicia no topo antes de imprimir
         scrollToTop('auto');
         setTimeout(() => window.print(), 150);
-    }).withFailureHandler(err => { mostrarStatus("❌ Erro: " + err.message, "erro", "status"); btn.disabled = false; }).executarCadastroWeb(formObj);
+    }).withFailureHandler(err => {
+        const msg = err && err.message ? err.message : String(err);
+        if (msg.includes("PACIENTE JÁ CADASTRADO PARA ESTA DATA")) {
+            abrirModalDuplicidade(msg);
+        } else {
+            mostrarStatus("❌ Erro: " + msg, "erro", "status");
+        }
+        btn.disabled = false;
+    }).executarCadastroWeb(formObj);
   }
 
   function enviarCadastro() {
@@ -641,7 +718,8 @@
        nome: document.getElementById("cadNome").value, cpf: document.getElementById("cadCpf").value, nasc: document.getElementById("cadNasc").value,
        idade: document.getElementById("cadIdade").value, sexo: document.getElementById("cadSexo").value,
        telefone: document.getElementById("cadTelefone").value, cep: document.getElementById("cadCep").value,
-       endereco: document.getElementById("cadEndereco").value, bairro: document.getElementById("cadBairro").value
+       endereco: document.getElementById("cadEndereco").value, bairro: document.getElementById("cadBairro").value,
+       numero: document.getElementById("cadNumero").value
     };
 
     google.script.run.withSuccessHandler(res => {
