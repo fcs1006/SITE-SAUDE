@@ -112,9 +112,9 @@ function buscarDadosRelatorioJesus(mesReferencia, usuario, senha) {
   const ultimaLinha = relatorio.getLastRow();
   if (ultimaLinha < 7) return [];
 
-  // 🔹 A até P (16 colunas)
-  const dados = relatorio
-    .getRange(7, 1, ultimaLinha - 6, 16)
+  // 🔹 A até Q (17 colunas)
+    const dados = relatorio
+    .getRange(7, 1, ultimaLinha - 6, 17)
     .getDisplayValues();
 
   // 🔹 FILTRO PELO MÊS (COLUNA 15 = índice 14)
@@ -228,6 +228,7 @@ function processarGravacao(dados) {
   }
 
   if (!dados.nome) throw new Error("O campo NOME é obrigatório!");
+  if (!dados.local) throw new Error("O campo LOCAL é obrigatório!");
   if (dados.agendadoPor && !NOMES_AGENDAMENTO.includes(dados.agendadoPor)) throw new Error(`Agendado por inválido.`);
 
 if (!relatorio) { lock.releaseLock(); throw new Error("Aba RELATORIO não encontrada."); }
@@ -236,7 +237,7 @@ if (!relatorio) { lock.releaseLock(); throw new Error("Aba RELATORIO não encont
   if (cpfLimpo) {
     const ultRelatorio = relatorio.getLastRow();
     if (ultRelatorio >= 7) {
-      const dadosRelatorio = relatorio.getRange(7, 1, ultRelatorio - 6, 16).getDisplayValues();
+      const dadosRelatorio = relatorio.getRange(7, 1, ultRelatorio - 6, 17).getDisplayValues();
       const duplicado = dadosRelatorio.some(linha => {
         const cpfRel = String(linha[3] || "").replace(/\D/g, "");
         const dataRel = String(linha[1] || "").trim();
@@ -317,10 +318,11 @@ if (!relatorio) { lock.releaseLock(); throw new Error("Aba RELATORIO não encont
   const linhaRel = [
     proximoNumero, dataFormatada, dados.nome, dados.cpf, dados.temAcomp, 
     dados.nomeA1||"", dados.cpfA1||"", dados.nomeA2||"", dados.cpfA2||"", 
-    dados.motivo, dados.destino, dados.hora, dados.obs, dados.obsA2||"", "", dados.agendadoPor
+ dados.motivo, dados.destino, dados.hora, dados.obs, dados.obsA2||"", "", dados.agendadoPor,
+    dados.local || ""
   ];
   
-  relatorio.getRange(linhaDestinoRel, 1, 1, 16).setNumberFormat("@").setValues([linhaRel]);
+  relatorio.getRange(linhaDestinoRel, 1, 1, 17).setNumberFormat("@").setValues([linhaRel]);
   relatorio.getRange(linhaDestinoRel, 15).setFormula(`=IF(B${linhaDestinoRel}="";"";TEXT(B${linhaDestinoRel};"mm/yyyy"))`);
 
   lock.releaseLock();
@@ -338,13 +340,14 @@ function buscarDadosRelatorio(usuario, senha) {
   const ult = abaRel.getLastRow();
   if (ult < 6) return [];
   
-  // Pega dados da Coluna A até P (16 colunas)
-  const dados = abaRel.getRange(7, 1, ult - 6, 16).getDisplayValues();
+  // Pega dados da Coluna A até Q (17 colunas)
+  const dados = abaRel.getRange(7, 1, ult - 6, 17).getDisplayValues();
   
   /* ÍNDICES (Baseado na gravação):
     0: ID, 1: Data, 2: Nome, 3: CPF, 4: Tem Acomp, 5: Nome A1, 
     6: CPF A1, 7: Nome A2, 8: CPF A2, 9: Motivo, 10: Destino, 
-    11: Hora, 12: Obs (Tipo), 13: Obs A2, 14: Vazio, 15: Resp
+    11: Hora, 12: Obs (Tipo), 13: Obs A2, 14: Vazio, 15: Resp,
+    16: Local
   */
 
   // Mapa Nome -> Telefone (BASE, coluna J = TELEFONE)
@@ -371,6 +374,7 @@ function buscarDadosRelatorio(usuario, senha) {
       nomeA2: r[7],     // Novo: Nome Acomp 2
       motivo: r[9],
       destino: r[10],
+      local: r[16],
       hora: r[11],
       obs: r[12],       // Novo: Tipo Viagem
       obsA2: r[13],     // Novo: Tipo Viagem Acomp 2
