@@ -157,13 +157,24 @@
           <option value="">Selecione...</option>
           <option value="CONCEIÇÃO/PALMAS">CONCEIÇÃO/PALMAS</option>
           <option value="CONCEIÇÃO/PALMAS - CARRO">CONCEIÇÃO/PALMAS - CARRO</option>
+          <option value="PALMAS/CONCEIÇÃO">PALMAS/CONCEIÇÃO</option>
+          <option value="PALMAS/CONCEIÇÃO - CARRO">PALMAS/CONCEIÇÃO - CARRO</option>
           <option value="CONCEIÇÃO/ARRAIAS">CONCEIÇÃO/ARRAIAS</option>
+          <option value="ARRAIAS/CONCEIÇÃO">ARRAIAS/CONCEIÇÃO</option>
           <option value="CONCEIÇÃO/PORTO NACIONAL">CONCEIÇÃO/PORTO NACIONAL</option>
           <option value="CONCEIÇÃO/PORTO NACIONAL - CARRO">CONCEIÇÃO/PORTO NACIONAL - CARRO</option>
+          <option value="PORTO NACIONAL/CONCEIÇÃO">PORTO NACIONAL/CONCEIÇÃO</option>
+          <option value="PORTO NACIONAL/CONCEIÇÃO - CARRO">PORTO NACIONAL/CONCEIÇÃO - CARRO</option>
           <option value="CONCEIÇÃO/DIANÓPOLIS">CONCEIÇÃO/DIANÓPOLIS</option>
+          <option value="DIANÓPOLIS/CONCEIÇÃO">DIANÓPOLIS/CONCEIÇÃO</option>
           <option value="CONCEIÇÃO/CAMPOS BELOS">CONCEIÇÃO/CAMPOS BELOS</option>
           <option value="CONCEIÇÃO/GURUPI">CONCEIÇÃO/GURUPI</option>
       </select>
+    </div>
+
+ <div class="form-group">
+      <label>Novo Local:</label>
+      <input type="text" id="editLocal" class="modal-input" placeholder="Informe o local">
     </div>
 
     <div class="form-group">
@@ -367,9 +378,10 @@
          document.getElementById('editNome').value = ""; document.getElementById('editDataAntiga').value = "";
          document.getElementById('editDataNova').value = ""; document.getElementById('editObs').value = "";
          document.getElementById('editDestino').value = "";
-         document.getElementById('editResp').value = ""; 
-         document.getElementById('editHora').value = ""; 
-         document.getElementById('editObsA2').value = ""; 
+         document.getElementById('editResp').value = "";
+         document.getElementById('editHora').value = "";
+         document.getElementById('editObsA2').value = "";
+         document.getElementById('editLocal').value = "";
 
          document.getElementById('statusEdit').innerText = "";
          document.getElementById('btnConfirmarEdit').style.display = 'inline-block';
@@ -400,11 +412,12 @@
   // --- LÓGICA DE EDIÇÃO ---
   function confirmarEdicao() {
      const dados = {
-        nome: document.getElementById('editNome').value.trim(),
+       nome: document.getElementById('editNome').value.trim(),
         dataAntiga: document.getElementById('editDataAntiga').value,
         dataNova: document.getElementById('editDataNova').value,
         novoHorario: document.getElementById('editHora').value,
         novoDestino: document.getElementById('editDestino').value,
+        novoLocal: document.getElementById('editLocal').value.trim(),
         novaObs: document.getElementById('editObs').value,
         novaObsA2: document.getElementById('editObsA2').value,
         responsavel: document.getElementById('editResp').value
@@ -413,8 +426,8 @@
      const status = document.getElementById('statusEdit');
      const btn = document.getElementById('btnConfirmarEdit');
 
-     if (!dados.nome || !dados.dataAntiga || !dados.dataNova || !dados.novoDestino || !dados.responsavel) {
-        alert("Preencha todos os campos obrigatórios (incluindo Responsável)."); return;
+     if (!dados.nome || !dados.dataAntiga || !dados.dataNova || !dados.novoDestino || !dados.novoLocal || !dados.responsavel) {
+        alert("Preencha todos os campos obrigatórios (incluindo Local e Responsável)."); return;
      }
 
      if (!confirm("Confirmar alterações?")) return;
@@ -498,7 +511,34 @@ function limparFiltros() { filtroAtivo = null; document.getElementById("inputBus
 
   function atualizarFiltroDestino(dados) {
      const select = document.getElementById("filtroDestino");
-     const destinos = [...new Set(dados.map(d => d.destino).filter(Boolean))].sort();
+      const destinosMap = new Map();
+     const destinosFixos = [
+        "CONCEIÇÃO/PALMAS",
+        "CONCEIÇÃO/PALMAS - CARRO",
+        "PALMAS/CONCEIÇÃO",
+        "PALMAS/CONCEIÇÃO - CARRO",
+        "CONCEIÇÃO/PORTO NACIONAL",
+        "CONCEIÇÃO/PORTO NACIONAL - CARRO",
+        "PORTO NACIONAL/CONCEIÇÃO",
+        "PORTO NACIONAL/CONCEIÇÃO - CARRO",
+        "CONCEIÇÃO/ARRAIAS",
+        "ARRAIAS/CONCEIÇÃO",
+        "CONCEIÇÃO/DIANÓPOLIS",
+        "DIANÓPOLIS/CONCEIÇÃO",
+        "CONCEIÇÃO/CAMPOS BELOS",
+        "CONCEIÇÃO/GURUPI",
+     ];
+     destinosFixos.forEach(destino => {
+        const chave = destino.toUpperCase();
+        if (!destinosMap.has(chave)) destinosMap.set(chave, destino);
+     });
+     dados.forEach(d => {
+        const rawDestino = (d.destino || '').trim().replace(/\s+/g, ' ');
+        if (!rawDestino) return;
+        const chave = rawDestino.toUpperCase();
+        if (!destinosMap.has(chave)) destinosMap.set(chave, rawDestino);
+     });
+     const destinos = [...destinosMap.values()].sort((a, b) => a.localeCompare(b, 'pt-BR'));
      select.innerHTML = '<option value="">Todos os Destinos</option>';
      destinos.forEach(destino => {
         const opt = document.createElement('option');
