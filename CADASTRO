@@ -91,7 +91,7 @@ function atualizarCadastroBase(dados) {
   return "Cadastro atualizado com sucesso!";
 }
 
-function buscarDadosRelatorioJesus(mesReferencia, usuario, senha) {
+function buscarDadosRelatorioJesus(mesReferencia, usuario, senha, destinosSelecionados) {
   exigirLogin(usuario, senha);
 
   if (!/^\d{2}\/\d{4}$/.test(mesReferencia)) {
@@ -108,7 +108,11 @@ function buscarDadosRelatorioJesus(mesReferencia, usuario, senha) {
     "CONCEIÇÃO/PORTO NACIONAL",
     "PORTO NACIONAL/CONCEIÇÃO"
   ];
-
+  const destinosNormalizados = (destinosSelecionados || [])
+    .map(destino => String(destino).trim())
+    .filter(destino => destino);
+  const rotasFiltradas = destinosNormalizados.length > 0 ? destinosNormalizados : rotasPermitidas;
+  
   const ultimaLinha = relatorio.getLastRow();
   if (ultimaLinha < 7) return [];
 
@@ -121,7 +125,7 @@ function buscarDadosRelatorioJesus(mesReferencia, usuario, senha) {
   const filtrados = dados.filter(l => {
     const mesColuna = String(l[14]).trim(); // mm/yyyy
     const rota = String(l[10]).trim();
-    return mesColuna === mesReferencia && rotasPermitidas.includes(rota);
+    return mesColuna === mesReferencia && rotasFiltradas.includes(rota);
   });
 
   // 🔹 ORDENA POR DATA
