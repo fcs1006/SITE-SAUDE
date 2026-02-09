@@ -435,7 +435,35 @@
   }
 
   // --- FILTROS ---
-  function verificarBloqueio(origem) { if (filtroAtivo && filtroAtivo !== origem) return true; return false; }
+function verificarBloqueio(origem) {
+    const excecoesDataDestino = (filtroAtivo === 'DATA' && origem === 'DESTINO')
+      || (filtroAtivo === 'DESTINO' && origem === 'DATA')
+      || (filtroAtivo === 'DATA_DESTINO' && (origem === 'DATA' || origem === 'DESTINO'));
+    if (excecoesDataDestino) return false;
+    if (filtroAtivo && filtroAtivo !== origem) return true;
+    return false;
+  }
+  function aplicarFiltroDataDestino() {
+    const dataInput = document.getElementById("filtroData").value;
+    const destinoSelect = document.getElementById("filtroDestino").value;
+    let filtrados = todosDados;
+
+    if (dataInput) {
+      const p = dataInput.split("-");
+      const dataFormatada = `${p[2]}/${p[1]}/${p[0]}`;
+      filtrados = filtrados.filter(d => d.data === dataFormatada);
+    }
+    if (destinoSelect) {
+      filtrados = filtrados.filter(d => d.destino === destinoSelect);
+    }
+
+    if (dataInput && destinoSelect) filtroAtivo = 'DATA_DESTINO';
+    else if (dataInput) filtroAtivo = 'DATA';
+    else if (destinoSelect) filtroAtivo = 'DESTINO';
+    else filtroAtivo = null;
+
+    renderizarTabela(filtrados);
+  }
   function filtrarTabela() {
     const input = document.getElementById("inputBuscar");
     if (verificarBloqueio('BUSCA')) { input.value = ""; return; }
@@ -452,15 +480,12 @@
   function filtrarData() {
      const input = document.getElementById("filtroData");
      if (verificarBloqueio('DATA')) { input.value = ""; return; }
-     if (!input.value) { filtroAtivo = null; renderizarTabela(todosDados); return; }
-     filtroAtivo = 'DATA'; const p = input.value.split("-");
-     renderizarTabela(todosDados.filter(d => d.data === `${p[2]}/${p[1]}/${p[0]}`));
+    aplicarFiltroDataDestino();
   }
   function filtrarDestino() {
      const select = document.getElementById("filtroDestino");
      if (verificarBloqueio('DESTINO')) { select.value = ""; return; }
-     if (select.value === "") { filtroAtivo = null; renderizarTabela(todosDados); return; }
-     filtroAtivo = 'DESTINO'; renderizarTabela(todosDados.filter(d => d.destino === select.value));
+     aplicarFiltroDataDestino();
   }
   function filtrarHoje() {
      if (verificarBloqueio('HOJE')) return; filtroAtivo = 'HOJE';
