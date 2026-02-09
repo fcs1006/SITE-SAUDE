@@ -234,7 +234,7 @@ function processarGravacao(dados) {
 if (!relatorio) { lock.releaseLock(); throw new Error("Aba RELATORIO não encontrada."); }
 
   const cpfLimpo = dados.cpf ? dados.cpf.replace(/\D/g, "") : "";
-  if (cpfLimpo) {
+  if (cpfLimpo && !dados.permitirDuplicado) {
     const ultRelatorio = relatorio.getLastRow();
     if (ultRelatorio >= 7) {
       const dadosRelatorio = relatorio.getRange(7, 1, ultRelatorio - 6, 17).getDisplayValues();
@@ -706,9 +706,11 @@ function editarRegistroViagem(dados, usuario, senha) {
          data: dados.dataNova, 
          nome: nomeBuscado, cpf: cpfFinal, sexo: sexoFinal, dtNasc: nascFinal,
          endereco: endFinal, bairro: bairFinal, telefone: telFinal,
+         local: dados.novoLocal,
          destino: destinoNovoNorm, motivo: dados.novoMotivo || motivoAntigo, 
          obs: dados.novaObs,
          hora: horaFinal, agendadoPor: responsavel,
+         permitirDuplicado: dataNovaObj.original === dataAntigaObj.original,
          
          temAcomp: temAcompAntigo, 
          nomeA1: nomeAcomp1Antigo, cpfA1: cpfAcomp1Antigo,
@@ -757,7 +759,8 @@ function editarRegistroViagem(dados, usuario, senha) {
       abaRel.getRange(linhaRel, 2).setValue(dataNovaObj.original); 
       abaRel.getRange(linhaRel, 11).setValue(destinoNovoNorm);     
       abaRel.getRange(linhaRel, 12).setValue(horaFinal);           
-      abaRel.getRange(linhaRel, 16).setValue(responsavel);         
+      abaRel.getRange(linhaRel, 16).setValue(responsavel);
+      if (dados.novoLocal) abaRel.getRange(linhaRel, 17).setValue(dados.novoLocal);         
       if (dados.novoMotivo) abaRel.getRange(linhaRel, 10).setValue(dados.novoMotivo); 
       if (dados.novaObs) abaRel.getRange(linhaRel, 13).setValue(dados.novaObs);       
       
