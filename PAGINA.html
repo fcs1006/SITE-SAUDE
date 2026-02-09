@@ -40,6 +40,7 @@
     .container-botao { margin-top: 30px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 10px; }
     button { width: 100%; max-width: 300px; padding: 15px; color: white; border: none; border-radius: var(--border-radius); cursor: pointer; font-size: 1.1rem; font-weight: bold; }
     #btnEnviar, #btnSalvarCadastro { background-color: var(--success); }
+    #btnReimprimir { background-color: var(--primary); }
     button:disabled { background-color: #ccc; cursor: not-allowed; }
     #status, #statusCadastro { margin-top: 15px; font-weight: bold; padding: 10px; border-radius: 4px; text-align: center; display: none; width: 100%; max-width: 300px; }
 
@@ -338,7 +339,7 @@
         </div>
 
         <div class="col-12"><h3>Destino e Motivo</h3></div>
-        <div class="col-4">
+        <div class="col-3">
           <label>Destino *</label>
           <select id="destino" required>
             <option value="">-- SELECIONE --</option>
@@ -358,7 +359,11 @@
             <option value="CONCEIÇÃO/GURUPI">CONCEIÇÃO/GURUPI</option>
           </select>
         </div>
-        <div class="col-4">
+        <div class="col-3">
+          <label>Local*</label>
+          <input type="text" id="local" oninput="this.value = this.value.toUpperCase()">
+        </div>
+        <div class="col-3">
           <label>Motivo *</label>
           <select id="motivo" required>
             <option value="">-- SELECIONE --</option>
@@ -373,7 +378,7 @@
             <option value="SÓ RETORNO">SÓ RETORNO</option>
           </select>
         </div>
-        <div class="col-4">
+        <div class="col-3">
           <label>Agendado por: *</label>
           <select id="agendadoPor" required>
             <option value="">-- SELECIONE --</option>
@@ -391,6 +396,7 @@
 
       <div class="container-botao">
         <button type="submit" id="btnEnviar">GRAVAR NO SISTEMA</button>
+        <button type="button" id="btnReimprimir" onclick="reimprimirUltimoAgendamento()" disabled>REIMPRIMIR ÚLTIMO AGENDAMENTO</button>
         <div id="status"></div>
       </div>
     </form>
@@ -434,6 +440,7 @@
   const CREDENCIAIS = { "alsiony": "cko170560", "fernando": "#Caramelo1006", "gleicyane": "cko170560" };
   let bancoDeDados = [];
   let pacienteCarregado = false;
+  let ultimoAgendamento = null;
   const TEMPO_SESSAO_MINUTOS = 240;
 
   window.onload = function() {
@@ -491,6 +498,55 @@
       // Não coloca foco para evitar descer a tela
   }
   
+function preencherFormularioAgendamento(dados) {
+      if (!dados) return;
+      const setVal = (id, val) => { const el = document.getElementById(id); if (el) el.value = val || ""; };
+      setVal('data', dados.data);
+      setVal('hora', dados.hora);
+      setVal('nome', dados.nome);
+      setVal('cpf', dados.cpf);
+      setVal('dtNasc', dados.dtNasc);
+      setVal('sexo', dados.sexo);
+      setVal('idade', dados.idade);
+      setVal('cep', dados.cep);
+      setVal('endereco', dados.endereco);
+      setVal('bairro', dados.bairro);
+      setVal('telefone', dados.telefone);
+      setVal('atualizarCadastro', dados.atualizarCadastro);
+      setVal('temAcomp', dados.temAcomp);
+      setVal('obs', dados.obs);
+      toggleAcomp();
+      setVal('nomeA1', dados.nomeA1);
+      setVal('cpfA1', dados.cpfA1);
+      setVal('nascA1', dados.nascA1);
+      setVal('endA1', dados.endA1);
+      setVal('bairA1', dados.bairA1);
+      setVal('sexoA1', dados.sexoA1);
+      setVal('telA1', dados.telA1);
+      setVal('nomeA2', dados.nomeA2);
+      setVal('cpfA2', dados.cpfA2);
+      setVal('nascA2', dados.nascA2);
+      setVal('endA2', dados.endA2);
+      setVal('bairA2', dados.bairA2);
+      setVal('obsA2', dados.obsA2);
+      setVal('sexoA2', dados.sexoA2);
+      setVal('telA2', dados.telA2);
+      setVal('destino', dados.destino);
+      setVal('local', dados.local);
+      setVal('motivo', dados.motivo);
+      setVal('agendadoPor', dados.agendadoPor);
+  }
+
+  function reimprimirUltimoAgendamento() {
+      if (!ultimoAgendamento) {
+          mostrarStatus("Nenhum agendamento disponível para reimprimir.", "erro", "status");
+          return;
+      }
+      preencherFormularioAgendamento(ultimoAgendamento);
+      scrollToTop('auto');
+      setTimeout(() => window.print(), 150);
+  }
+
   function abrirAba(nomeAba) {
     document.getElementById('viewAgendamento').style.display = 'none'; document.getElementById('viewCadastro').style.display = 'none';
     document.getElementById('tabBtnAgendamento').classList.remove('active'); document.getElementById('tabBtnCadastro').classList.remove('active');
@@ -670,12 +726,15 @@ function fecharModalDuplicidade() {
       endA2: document.getElementById('endA2').value, bairA2: document.getElementById('bairA2').value, obsA2: document.getElementById('obsA2').value,
       sexoA2: document.getElementById('sexoA2').value, telA2: document.getElementById('telA2').value,
 
-      destino: document.getElementById('destino').value, motivo: document.getElementById('motivo').value, agendadoPor: document.getElementById('agendadoPor').value
+      destino: document.getElementById('destino').value, local: document.getElementById('local').value,
+      motivo: document.getElementById('motivo').value, agendadoPor: document.getElementById('agendadoPor').value
     };
 
     google.script.run.withSuccessHandler(res => {
         mostrarStatus("✅ " + res, "sucesso", "status");
         btn.disabled = false;
+        ultimoAgendamento = { ...formObj };
+        document.getElementById('btnReimprimir').disabled = false;
 
         const finalizar = () => {
             document.getElementById('formViagem').reset();
