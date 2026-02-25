@@ -7,245 +7,41 @@
   <title>Relatório Jesus</title>
 
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      background: #f2f2f2;
-      margin: 0;
-      padding: 4px;
-    }
+   body { font-family: Arial, sans-serif; background: #f2f2f2; margin: 0; padding: 20px; }
+    .barra { background: #fff; padding: 15px; border-radius: 6px; box-shadow: 0 2px 8px rgba(0,0,0,.15); display: flex; gap: 10px; align-items: center; margin-bottom: 15px; flex-wrap: wrap; }
+    input { padding: 8px; width: 130px; font-weight: bold; text-align: center; }
+    button { padding: 8px 14px; font-weight: bold; border: none; border-radius: 4px; cursor: pointer; background: #4a148c; color: #fff; }
+    button:disabled { background: #999; cursor: not-allowed; }
 
-    .barra {
-      background: #fff;
-      padding: 15px;
-      border-radius: 6px;
-      box-shadow: 0 2px 8px rgba(0,0,0,.15);
-      display: flex;
-      gap: 10px;
-      align-items: center;
-      margin-bottom: 15px;
-    }
+    #telaLogin { position: fixed; inset: 0; background: #f4f7f6; display: flex; align-items: center; justify-content: center; z-index: 9999; }
+    .login-card { background: white; padding: 40px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); text-align: center; width: 300px; }
+    .login-card input { width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ccc; border-radius: 4px; }
+    .login-card button { width: 100%; padding: 10px; }
 
-    input {
-      padding: 8px;
-      width: 110px;
-      font-weight: bold;
-      text-align: center;
-    }
+    .page { background: #fff; padding: 10mm; border-radius: 6px; }
+    .bloco-destino { margin-bottom: 10mm; }
+    .bloco-destino:last-child { margin-bottom: 0; }
 
-    button {
-      padding: 8px 14px;
-      font-weight: bold;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-      background: #4a148c;
-      color: #fff;
-    }
+    .titulo-geral { text-align: center; font-size: 16px; font-weight: bold; margin: 0 0 6px 0; text-transform: uppercase; }
+    .meta { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; margin-bottom: 6px; font-weight: bold; }
 
-    button:disabled {
-      background: #999;
-      cursor: not-allowed;
-    }
-
-    /* Login */
-    #telaLogin {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: #f4f7f6;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      z-index: 9999;
-    }
-    .login-card {
-      background: white;
-      padding: 40px;
-      border-radius: 8px;
-      box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-      text-align: center;
-      width: 300px;
-    }
-    .login-card input {
-      width: 100%;
-      padding: 10px;
-      margin: 10px 0;
-      border: 1px solid #ccc;
-      border-radius: 4px;
-    }
-    .login-card button {
-      width: 100%;
-      padding: 10px;
-      background: #4a148c;
-      color: #fff;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-      font-weight: bold;
-    }
-
-    .page {
-      background: #fff;
-      padding: 10mm;
-      border-radius: 6px;
-    }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 9px;
-    }
-
-    th, td {
-      border: 1px solid #000;
-      padding: 3px;
-      text-align: center;
-      vertical-align: middle;
-    }
-
-    thead th {
-      background: #eaeaea;
-      font-weight: bold;
-      text-transform: uppercase;
-    }
+    table { width: 100%; border-collapse: collapse; font-size: 10px; table-layout: fixed; }
+    th, td { border: 1px solid #000; padding: 4px; text-align: center; vertical-align: middle; }
+    thead th { background: #eaeaea; text-transform: uppercase; }
 
     .left { text-align: left; }
+    .total-linha { font-weight: bold; background: #f5f5f5; }
 
-    /* ESCONDE RESP NA TELA */
-    .col-resp {
-      display: none;
-    }
+    .assinatura { display: none; margin-top: 12mm; text-align: center; font-size: 11px; break-inside: avoid; page-break-inside: avoid; }
+    .assinatura .linha { margin-bottom: 4px; }
 
-    /* CABEÇALHO DE IMPRESSÃO */
-    .print-header {
-      display: none;
-      margin-bottom: 6mm;
-    }
-
-    .header {
-      display: flex;
-      align-items: center;
-      gap: 15px;
-      border-bottom: 2px solid #000;
-      padding-bottom: 6px;
-    }
-
-    .header img {
-      height: 70px;
-    }
-
-    .header-text {
-      font-size: 14px;
-      font-weight: bold;
-      line-height: 1.3;
-      text-transform: uppercase;
-    }
-
-    /* MÊS / ANO */
-    .print-ref {
-      margin-left: auto;
-      display: none;
-      text-align: right;
-      font-weight: bold;
-      margin-bottom: 5mm;
-      line-height: 1.2;
-    }
-
-    .assinatura {
-  display: none;
-  margin-top: 15mm;
-  text-align: center;
-  font-size: 11px;
-
-  break-inside: avoid;
-  page-break-inside: avoid;
-}
-
-
-    .assinatura .linha {
-      margin-bottom: 4px;
-    }
-
-@media print {
-  body {
-    background: #fff;
-    padding: 0;
-    margin: 0;
-  }
-
-  .barra {
-    display: none !important;
-  }
-  #telaLogin {
-    display: none !important;
-  }
-
-  .print-header,
-  .print-ref,
-  .assinatura {
-    display: block;
-  }
-
-  .print-header {
-    margin-bottom: 2mm;
-  }
-
-  .print-ref {
-    margin-bottom: 2mm;
-  }
-
-  .page {
-    padding: 2mm;
-    page-break-after: always;
-  }
-
-  .page:last-child {
-    page-break-after: auto;
-  }
-
-  table th.col-resp,
-  table td.col-resp {
-    display: none !important;
-  }
-
-  /* ===== TABELA ===== */
-  table {
-    width: 100%;
-    table-layout: fixed;
-  }
-
-    table, th, td {
-    box-sizing: border-box;
-  }
-
-  /* ===== COLUNAS EM % ===== */
-  .col-num      { width: 2%; }
-  .col-data     { width: 5%; }
-  .col-nome     { width: 12%; }
-  .col-cpf      { width: 9%; }
-  .col-acomp    { width: 4%; }
-  .col-acomp1   { width: 12%; }
-  .col-cpf1     { width: 9%; }
-  .col-acomp2   { width: 13%; }
-  .col-cpf2     { width: 9%; }
-  .col-motivo   { width: 7%; }
-  .col-destino  { width: 6%; }
-  .col-hora     { width: 4%; }
-  .col-obs      { width: 4%; }
-  .col-obs2     { width: 4%; }
-
-  th, td {
-    word-wrap: break-word;
-    overflow-wrap: break-word;
-  }
-
-  @page {
-    size: A4 landscape;
-    margin: 4mm;
-  }
-}
+  @media print {
+      body { background: #fff; padding: 0; margin: 0; }
+      .barra, #telaLogin { display: none !important; }
+      .page { padding: 4mm; border-radius: 0; }
+      .assinatura { display: block; }
+      .bloco-destino { page-break-inside: avoid; }
+      @page { size: A4 landscape; margin: 8mm; }
 
 
 
@@ -257,7 +53,7 @@
 <div id="telaLogin">
   <div class="login-card">
     <h3 style="margin-top:0;">Acesso Restrito</h3>
-    <input type="text" id="loginUser" placeholder="Usuá­rio">
+    <input type="text" id="loginUser" placeholder="Usuário">
     <input type="password" id="loginPass" placeholder="Senha">
     <button onclick="fazerLogin()">ENTRAR</button>
     <div id="msgErro" style="color:red; font-size:12px; margin-top:10px; display:none;">Dados incorretos</div>
@@ -265,75 +61,26 @@
 </div>
 
 <div id="conteudo" style="display:none;">
-<!-- CONTROLE -->
+
 <div class="barra">
-  <label>Mês:</label>
-  <input id="mes" placeholder="MM/AAAA" value="">
-  <button onclick="gerar()">GERAR</button>
-  <button onclick="window.print()" id="btnPrint" disabled>IMPRIMIR</button>
-</div>
-
-<!-- RELATÓRIO -->
-<div class="page">
-
-  
-  <!-- CABEÇALHO -->
-  <div class="print-header">
-    <div class="header">
-      <img src="https://lh3.googleusercontent.com/u/0/d/1uRm9gJZ7sShqkZJSu9w7R7LgQ6PgtPnu">
-      <div class="header-text">
-        PREFEITURA MUNICIPAL DE CONCEIÇÃO DO TOCANTINS<br>
-        SECRETARIA MUNICIPAL DE SAÚDE<br>
-        FUNDO MUNICIPAL DE SAÚDE
-      </div>
-
-  <!-- MÊS / ANO -->
-    <div class="print-ref">
-      Mês de referência: <span id="refTexto"></span>
-      </div>
-
-    </div>
+    <label>Data:</label>
+    <input id="data" type="date">
+    <button onclick="gerar()">GERAR</button>
+    <button onclick="window.print()" id="btnPrint" disabled>IMPRIMIR</button>
   </div>
 
-  <!-- TABELA -->
-  <table>
-    <thead>
-      <tr>
-        <th class="col-num">Nº</th>
-        <th class="col-data">Data</th>
-        <th class="col-nome">Nome</th>
-        <th class="col-cpf">CNS/CPF</th>
-        <th class="col-acomp">Acomp</th>
-        <th class="col-acomp1">Acomp 1</th>
-        <th class="col-cpf1">CNS/CPF</th>
-        <th class="col-acomp2">Acomp 2</th>
-        <th class="col-cpf2">CNS/CPF</th>
-        <th class="col-motivo">Motivo</th>
-        <th class="col-destino">Destino</th>
-        <th class="col-hora">Hora</th>
-        <th class="col-obs">Obs</th>
-        <th class="col-obs2">Obs2</th>
-        <th class="col-resp">Resp</th>
-      </tr>
-    </thead>
-    <tbody id="tbody">
-      <tr>
-        <td colspan="15" style="padding:15px;font-weight:bold;">
-          Informe o mês e clique em GERAR
-        </td>
-      </tr>
-    </tbody>
-  </table>
+  </div>
 
-  <!-- ASSINATURA -->
+ <div class="page" id="paginaRelatorio">
+    <div id="blocoPorto" class="bloco-destino"></div>
+    <div id="blocoPalmas" class="bloco-destino"></div>
+
   <div class="assinatura">
-    <div class="linha">______________________________________________</div>
-    <div class="linha"><strong>GLEICYANE CARDOSO SOUSA</strong></div>
-    <div class="linha">ENFERMEIRA GERENTE DA ATENÇÃO BÁSICA</div>
-    <div class="linha">DECRETO MUNICIPAL Nº 030/2025</div>
-  </div>
-
-</div>
+      <div class="linha">______________________________________________</div>
+      <div class="linha"><strong>GLEICYANE CARDOSO SOUSA</strong></div>
+      <div class="linha">ENFERMEIRA GERENTE DA ATENÇÃO BÁSICA</div>
+      <div class="linha">DECRETO MUNICIPAL Nº 030/2025</div>
+    </div>
 
 </div>
 
@@ -341,7 +88,7 @@
 const CREDENCIAIS = { "alsiony": "cko170560", "fernando": "#Caramelo1006", "gleicyane": "cko170560" };
 const TEMPO_SESSAO_MINUTOS = 240;
 
-window.onload = function() { verificarLogin(); };
+window.onload = function() { verificarLogin(); renderMensagemInicial(); };
 
 function verificarLogin() {
   const u = localStorage.getItem("sms_user");
@@ -349,13 +96,8 @@ function verificarLogin() {
   const t = localStorage.getItem("sms_time");
   const agora = new Date().getTime();
   const valido = u && p && CREDENCIAIS[u] === p && t && (agora - parseInt(t, 10)) / 1000 / 60 < TEMPO_SESSAO_MINUTOS;
-  if (valido) {
-    document.getElementById("telaLogin").style.display = "none";
-    document.getElementById("conteudo").style.display = "block";
-  } else {
-    document.getElementById("telaLogin").style.display = "flex";
-    document.getElementById("conteudo").style.display = "none";
-  }
+ document.getElementById("telaLogin").style.display = valido ? "none" : "flex";
+  document.getElementById("conteudo").style.display = valido ? "block" : "none";
 }
 
 function fazerLogin() {
@@ -372,76 +114,100 @@ function fazerLogin() {
   }
 }
 
+function formatarDataBR(dataISO) {
+  if (!dataISO) return "";
+  const p = dataISO.split("-");
+  return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : "";
+}
+
 function gerar() {
-  const mes = document.getElementById("mes").value.trim();
-  const tbody = document.getElementById("tbody");
+  const dataISO = document.getElementById("data").value;
+  const dataBR = formatarDataBR(dataISO);
   const btnPrint = document.getElementById("btnPrint");
 
   btnPrint.disabled = true;
 
-  if (!/^\d{2}\/\d{4}$/.test(mes)) {
-    alert("Use o formato MM/AAAA");
+    if (!dataBR) {
+    alert("Selecione uma data.");
     return;
   }
 
-  document.getElementById("refTexto").innerText = mes;
-
-  tbody.innerHTML = `
-    <tr>
-      <td colspan="15" style="padding:15px;color:blue;font-weight:bold;">
-        ⏳ Carregando dados...
-      </td>
-    </tr>
-  `;
+    renderCarregando(dataBR);
 
   google.script.run
-    .withSuccessHandler(preencherTabela)
-    .withFailureHandler(err => {
-      tbody.innerHTML = `
-        <tr>
-          <td colspan="15" style="color:red;font-weight:bold;">
-            ❌ Erro: ${err.message}
-          </td>
-        </tr>`;
+.withSuccessHandler(res => {
+      renderDestino("blocoPorto", "PORTO NACIONAL", dataBR, res.portoNacional || []);
+      renderDestino("blocoPalmas", "PALMAS", dataBR, res.palmas || []);
+      const totalGeral = (res.portoNacional || []).length + (res.palmas || []).length;
+      btnPrint.disabled = totalGeral === 0;
     })
-    .buscarDadosRelatorioJesus(mes, localStorage.getItem("sms_user"), localStorage.getItem("sms_pass"));
+    .withFailureHandler(err => {
+     const msg = `<p style='color:red;font-weight:bold;'>❌ Erro: ${err.message}</p>`;
+      document.getElementById("blocoPorto").innerHTML = msg;
+      document.getElementById("blocoPalmas").innerHTML = "";
+    })
+    .buscarDadosRelatorioJesusPorData(dataBR, localStorage.getItem("sms_user"), localStorage.getItem("sms_pass"));
 }
 
-function preencherTabela(dados) {
-  const tbody = document.getElementById("tbody");
-  const btnPrint = document.getElementById("btnPrint");
+function renderCarregando(data) {
+  const msg = `
+    <p class="titulo-geral">RELAÇÃO DOS PACIENTES COM TRATAMENTO FORA DE DOMICÍLIO</p>
+    <div class="meta"><span>DATA: ${data}</span><span>NOME DA CIDADE DESTINO: --</span></div>
+    <p style="font-weight:bold;">⏳ Carregando dados...</p>`;
+  document.getElementById("blocoPorto").innerHTML = msg;
+  document.getElementById("blocoPalmas").innerHTML = "";
+}
 
-  if (!dados || dados.length === 0) {
-    tbody.innerHTML = `
-      <tr>
-        <td colspan="15" style="padding:15px;font-weight:bold;">
-          Nenhum registro encontrado
-        </td>
-      </tr>`;
+function renderMensagemInicial() {
+  document.getElementById("blocoPorto").innerHTML = "<p style='font-weight:bold;'>Selecione uma data e clique em GERAR.</p>";
+  document.getElementById("blocoPalmas").innerHTML = "";
+}
+
+function renderDestino(containerId, cidade, data, lista) {
+  const container = document.getElementById(containerId);
+
+  if (!lista.length) {
+    container.innerHTML = `
+      <p class="titulo-geral">RELAÇÃO DOS PACIENTES COM TRATAMENTO FORA DE DOMICÍLIO</p>
+      <div class="meta"><span>DATA: ${data}</span><span>NOME DA CIDADE DESTINO: ${cidade}</span></div>
+      <p style="font-weight:bold;">Nenhum paciente para ${cidade}.</p>`;
+
     return;
   }
 
-  tbody.innerHTML = dados.map(d => `
+  const linhas = lista.map((p, idx) => `
     <tr>
-      <td>${d.num}</td>
-      <td>${d.data}</td>
-      <td class="left">${d.nome}</td>
-      <td>${d.cpf}</td>
-      <td>${d.acomp}</td>
-      <td class="left">${d.nomeA1}</td>
-      <td>${d.cpfA1}</td>
-      <td class="left">${d.nomeA2}</td>
-      <td>${d.cpfA2}</td>
-      <td>${d.motivo}</td>
-      <td>${d.destino}</td>
-      <td>${d.hora}</td>
-      <td>${d.obs}</td>
-      <td>${d.obs2}</td>
-      <td class="col-resp">${d.resp || ''}</td>
-    </tr>
-  `).join("");
+ <td>${idx + 1}</td>
+      <td class="left">${p.paciente}</td>
+      <td class="left">${p.acompanhante}</td>
+      <td>${p.telefone}</td>
+      <td class="left">${p.motivo}</td>
+      <td>${p.horario}</td>
+      <td class="left">${p.local}</td>
+      <td>${p.controle}</td>
+    </tr>`).join("");
 
-  btnPrint.disabled = false;
+  container.innerHTML = `
+    <p class="titulo-geral">RELAÇÃO DOS PACIENTES COM TRATAMENTO FORA DE DOMICÍLIO</p>
+    <div class="meta"><span>DATA: ${data}</span><span>NOME DA CIDADE DESTINO: ${cidade}</span></div>
+    <table>
+      <thead>
+        <tr>
+          <th style="width:5%;">NÚMERO SEQUENCIAL</th>
+          <th style="width:20%;">PACIENTE</th>
+          <th style="width:20%;">ACOMPANHANTE</th>
+          <th style="width:12%;">TELEFONE</th>
+          <th style="width:15%;">MOTIVO</th>
+          <th style="width:8%;">HORÁRIO</th>
+          <th style="width:12%;">LOCAL</th>
+          <th style="width:8%;">CONTROLE</th>
+        </tr>
+      </thead>
+      <tbody>${linhas}</tbody>
+      <tfoot>
+        <tr class="total-linha"><td colspan="8">TOTAL DE PACIENTES: ${lista.length}</td></tr>
+      </tfoot>
+    </table>`;
 }
 </script>
 
