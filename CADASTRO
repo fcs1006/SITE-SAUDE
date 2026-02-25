@@ -30,6 +30,14 @@ function doGet(e) {
       .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
   }
 
+// ✅ NOVA ROTA — FREQUÊNCIA
+  if (e.parameter && e.parameter.page === 'frequencia') {
+    return HtmlService.createHtmlOutputFromFile('FP')
+      .setTitle('Frequência Mensal')
+      .addMetaTag('viewport', 'width=device-width, initial-scale=1')
+      .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+  }
+
   // Página principal
   return HtmlService.createHtmlOutputFromFile('PAGINA')
     .setTitle('Sistema de Saúde - Conceição')
@@ -98,7 +106,7 @@ function buscarDadosRelatorioJesus(mesReferencia, usuario, senha, destinosSeleci
     throw new Error("Formato inválido. Use MM/AAAA.");
   }
 
-  const ss = SpreadsheetApp.openById("12d04IePMmvgixxG3LHkDBsOBQB7aGR7qbIhKMucfDio");
+  const ss = SpreadsheetApp.openById("1yo_3kmN_e48VmY1pYf6Lcmp-hNhgwN43qmi8sFa4ixw");
   const relatorio = ss.getSheetByName("RELATORIO");
   if (!relatorio) throw new Error("Aba RELATORIO não encontrada.");
 
@@ -810,7 +818,7 @@ function buscarResumoMensal(mesAno, usuario, senha) {
     throw new Error("Formato inválido. Use MM/YYYY");
   }
 
-  const ss = SpreadsheetApp.openById("12d04IePMmvgixxG3LHkDBsOBQB7aGR7qbIhKMucfDio");
+  const ss = SpreadsheetApp.openById("1yo_3kmN_e48VmY1pYf6Lcmp-hNhgwN43qmi8sFa4ixw");
   const aba = ss.getSheetByName("RELATORIO");
   if (!aba) throw new Error("Aba RELATORIO não encontrada");
 
