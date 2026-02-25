@@ -58,6 +58,12 @@ function exigirLogin(usuario, senha) {
   if (!validarLogin(usuario, senha)) throw new Error("Acesso negado.");
 }
 
+
+function obterUrlWebApp(usuario, senha) {
+  exigirLogin(usuario, senha);
+  return ScriptApp.getService().getUrl();
+}
+
 function atualizarCadastroBase(dados) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const abaBase = ss.getSheetByName("BASE");
