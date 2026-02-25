@@ -210,10 +210,9 @@
   </div>
 
   <div class="tab-container">
-  <button type="button" class="tab-btn active" id="tabBtnAgendamento" onclick="abrirAba('agendamento')">AGENDAMENTO</button>
-  <button type="button" class="tab-btn" id="tabBtnCadastro" onclick="abrirAba('cadastro')">NOVO CADASTRO</button>
-  <button type="button" class="tab-btn" id="tabBtnFrequencias" onclick="abrirAba('frequencias')">FREQUÊNCIAS</button>
-</div>
+    <button type="button" class="tab-btn active" id="tabBtnAgendamento" onclick="abrirAba('agendamento')">AGENDAMENTO</button>
+    <button type="button" class="tab-btn" id="tabBtnCadastro" onclick="abrirAba('cadastro')">NOVO CADASTRO</button>
+  </div>
 
   <div id="viewAgendamento">
     <h2>Controle de Viagem</h2>
@@ -422,43 +421,10 @@
         <button type="button" onclick="limparCadastro()" style="background-color: #6c757d; margin-right: 10px; max-width: 150px;">LIMPAR</button>
         <button type="submit" id="btnSalvarCadastro" style="max-width: 200px;">SALVAR NA BASE</button>
       </div>
-      
       <div id="statusCadastro" style="margin-top: 10px; text-align: center;"></div>
     </form>
   </div>
-  
-<div id="viewFrequencias" style="display:none;">
-    <h2>Resumo de Frequências</h2>
-    <div class="grid">
-      <div class="col-3">
-        <label>Mês/Ano (MM/AAAA)</label>
-        <input type="text" id="freqMesAno" placeholder="MM/AAAA" maxlength="7" oninput="mascaraMesAno(this)">
-      </div>
-      <div class="col-3" style="display:flex; align-items:end;">
-        <button type="button" id="btnGerarFrequencia" style="max-width: 180px; background-color: var(--primary);" onclick="gerarFrequencias()">GERAR</button>
-      </div>
-      <div class="col-12">
-        <div id="statusFrequencia" style="display:none; margin-top:8px; font-weight:bold;"></div>
-      </div>
-      <div class="col-12" style="overflow-x:auto;">
-        <table style="width:100%; border-collapse: collapse; margin-top: 8px;">
-          <thead>
-            <tr>
-              <th style="border:1px solid #ccc; padding:8px; text-align:left;">PASSAGENS</th>
-              <th style="border:1px solid #ccc; padding:8px;">PACIENTES</th>
-              <th style="border:1px solid #ccc; padding:8px;">ACOMP.</th>
-              <th style="border:1px solid #ccc; padding:8px;">TOTAL PESSOAS</th>
-              <th style="border:1px solid #ccc; padding:8px;">PASSAGENS DO MÊS</th>
-            </tr>
-          </thead>
-          <tbody id="tbodyFrequencia">
-            <tr><td colspan="5" style="border:1px solid #ccc; padding:10px; text-align:center;">Informe o mês e clique em GERAR.</td></tr>
-          </tbody>
-          <tfoot id="tfootFrequencia" style="display:none;"></tfoot>
-        </table>
-      </div>
-    </div>
-  </div>
+</div>
 
 <div id="dupModal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="dupModalTitle" aria-describedby="dupModalMessage">
   <div class="modal-box">
@@ -494,14 +460,8 @@
     let v = input.value.replace(/\D/g, "");
     if (v.length > 11) { input.maxLength = 19; v = v.replace(/^(\d{3})(\d)/, "$1.$2"); v = v.replace(/^(\d{3})\.(\d{3})(\d)/, "$1.$2.$3"); v = v.replace(/^(\d{3})\.(\d{3})\.(\d{3})(\d)/, "$1.$2.$3.$4"); v = v.replace(/^(\d{3})\.(\d{3})\.(\d{3})\.(\d{3})(\d)/, "$1.$2.$3.$4.$5"); } 
     else { v = v.replace(/(\d{3})(\d)/, "$1.$2"); v = v.replace(/(\d{3})(\d)/, "$1.$2"); v = v.replace(/(\d{3})(\d{1,2})$/, "$1-$2"); }
-    input.value = v;}
-
-  function mascaraMesAno(input) {
-  let v = input.value.replace(/\D/g, "");
-  if (v.length > 2) v = v.slice(0, 2) + "/" + v.slice(2, 6);
-  input.value = v.slice(0, 7);
-}
-  
+    input.value = v;
+  }
   function mascaraData(input) { let v = input.value.replace(/\D/g, ""); v = v.replace(/(\d{2})(\d)/, "$1/$2"); v = v.replace(/(\d{2})(\d)/, "$1/$2"); input.value = v; }
   function mascaraTelefone(input) { let v = input.value.replace(/\D/g, ""); v = v.replace(/^(\d{2})(\d)/g, "($1) $2"); v = v.replace(/(\d)(\d{4})$/, "$1-$2"); input.value = v; }
   function calcularIdadeAuto(dataStr) {
@@ -587,76 +547,12 @@ function preencherFormularioAgendamento(dados) {
       setTimeout(() => window.print(), 150);
   }
 
-function abrirAba(nomeAba) {
-  document.getElementById('viewAgendamento').style.display = 'none'; document.getElementById('viewCadastro').style.display = 'none'; document.getElementById('viewFrequencias').style.display = 'none';
-  document.getElementById('tabBtnAgendamento').classList.remove('active'); document.getElementById('tabBtnCadastro').classList.remove('active'); document.getElementById('tabBtnFrequencias').classList.remove('active');
-  if (nomeAba === 'agendamento') { document.getElementById('viewAgendamento').style.display = 'block'; document.getElementById('tabBtnAgendamento').classList.add('active'); } 
-  else if (nomeAba === 'cadastro') { document.getElementById('viewCadastro').style.display = 'block'; document.getElementById('tabBtnCadastro').classList.add('active'); }
-  else { document.getElementById('viewFrequencias').style.display = 'block'; document.getElementById('tabBtnFrequencias').classList.add('active'); }
-}
-
-  function gerarFrequencias() {
-  const mesAno = document.getElementById('freqMesAno').value.trim();
-  const tbody = document.getElementById('tbodyFrequencia');
-  const tfoot = document.getElementById('tfootFrequencia');
-  const btn = document.getElementById('btnGerarFrequencia');
-  const statusId = 'statusFrequencia';
-
-  if (!/^\d{2}\/\d{4}$/.test(mesAno)) {
-    mostrarStatus('Informe o mês no formato MM/AAAA.', 'erro', statusId);
-    return;
+  function abrirAba(nomeAba) {
+    document.getElementById('viewAgendamento').style.display = 'none'; document.getElementById('viewCadastro').style.display = 'none';
+    document.getElementById('tabBtnAgendamento').classList.remove('active'); document.getElementById('tabBtnCadastro').classList.remove('active');
+    if (nomeAba === 'agendamento') { document.getElementById('viewAgendamento').style.display = 'block'; document.getElementById('tabBtnAgendamento').classList.add('active'); } 
+    else { document.getElementById('viewCadastro').style.display = 'block'; document.getElementById('tabBtnCadastro').classList.add('active'); }
   }
-
-  btn.disabled = true;
-  tfoot.style.display = 'none';
-  tbody.innerHTML = '<tr><td colspan="5" style="border:1px solid #ccc; padding:10px; text-align:center;">⏳ Carregando...</td></tr>';
-
-  google.script.run.withSuccessHandler((dados) => {
-    if (!dados || dados.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="5" style="border:1px solid #ccc; padding:10px; text-align:center;">Nenhum registro encontrado.</td></tr>';
-      btn.disabled = false;
-      return;
-    }
-
-    let somaPacientes = 0;
-    let somaAcompanhantes = 0;
-    let somaPessoas = 0;
-    let somaPassagens = 0;
-
-    tbody.innerHTML = dados.map((d) => {
-      const totalPessoas = (d.pacientes || 0) + (d.acompanhantes || 0);
-      somaPacientes += d.pacientes || 0;
-      somaAcompanhantes += d.acompanhantes || 0;
-      somaPessoas += totalPessoas;
-      somaPassagens += d.total || 0;
-      return `<tr>
-        <td style="border:1px solid #ccc; padding:8px;">${d.passagem || ''}</td>
-        <td style="border:1px solid #ccc; padding:8px; text-align:center;">${d.pacientes || 0}</td>
-        <td style="border:1px solid #ccc; padding:8px; text-align:center;">${d.acompanhantes || 0}</td>
-        <td style="border:1px solid #ccc; padding:8px; text-align:center;">${totalPessoas}</td>
-        <td style="border:1px solid #ccc; padding:8px; text-align:center; font-weight:bold;">${d.total || 0}</td>
-      </tr>`;
-    }).join('');
-
-    tfoot.innerHTML = `<tr>
-      <td style="border:1px solid #ccc; padding:8px; text-align:right; font-weight:bold;">TOTAL</td>
-      <td style="border:1px solid #ccc; padding:8px; text-align:center; font-weight:bold;">${somaPacientes}</td>
-      <td style="border:1px solid #ccc; padding:8px; text-align:center; font-weight:bold;">${somaAcompanhantes}</td>
-      <td style="border:1px solid #ccc; padding:8px; text-align:center; font-weight:bold;">${somaPessoas}</td>
-      <td style="border:1px solid #ccc; padding:8px; text-align:center; font-weight:bold;">${somaPassagens}</td>
-    </tr>`;
-    tfoot.style.display = 'table-footer-group';
-    mostrarStatus(`Resumo gerado para ${mesAno}.`, 'sucesso', statusId);
-    btn.disabled = false;
-  }).withFailureHandler((err) => {
-    const msg = err && err.message ? err.message : String(err);
-    tbody.innerHTML = `<tr><td colspan="5" style="border:1px solid #ccc; padding:10px; text-align:center; color:#c0392b;">Erro ao gerar: ${msg}</td></tr>`;
-    mostrarStatus(`Erro ao gerar resumo: ${msg}`, 'erro', statusId);
-    btn.disabled = false;
-  }).buscarResumoMensal(mesAno, localStorage.getItem("sms_user"), localStorage.getItem("sms_pass"));
-}
-  
-  
   function verificarSessaoSalva() {
       const userSalvo = localStorage.getItem("sms_user"); const passSalvo = localStorage.getItem("sms_pass"); const timeSalvo = localStorage.getItem("sms_time");
       const agora = new Date().getTime();
