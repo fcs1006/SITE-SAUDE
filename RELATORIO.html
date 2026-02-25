@@ -258,8 +258,7 @@
       <button class="btn btn-print" onclick="window.print()"><span class="material-icons">print</span> Imprimir</button>
       <button class="btn btn-edit" onclick="abrirModal('modalEditar')"><span class="material-icons">edit</span> Editar</button>
       <button class="btn btn-delete" onclick="abrirModal('modalExclusao')"><span class="material-icons">delete</span> Excluir</button>
-     <button class="btn" style="background-color:#4a148c; color:#fff;" onclick="window.open('?page=jesus', '_blank')"><span class="material-icons">description</span> JESUS</button>
-    </div>
+     <button class="btn" style="background-color:#4a148c; color:#fff;" onclick="abrirRelatorioJesus()"><span class="material-icons">description</span> JESUS</button>
   </div>
 
   <div class="filter-bar">
@@ -377,6 +376,25 @@
   }
 
   function sair() { localStorage.clear(); location.reload(); }
+
+  function abrirRelatorioJesus() {
+    const usuario = localStorage.getItem("sms_user");
+    const senha = localStorage.getItem("sms_pass");
+
+    google.script.run
+      .withSuccessHandler(urlBase => {
+        if (!urlBase) {
+          window.open('?page=jesus', '_blank');
+          return;
+        }
+        const separador = urlBase.includes('?') ? '&' : '?';
+        window.open(`${urlBase}${separador}page=jesus`, '_blank');
+      })
+      .withFailureHandler(() => {
+        window.open('?page=jesus', '_blank');
+      })
+      .obterUrlWebApp(usuario, senha);
+  }
 
   function carregarDados() {
     const u = localStorage.getItem("sms_user");
