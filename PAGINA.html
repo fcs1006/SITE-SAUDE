@@ -214,11 +214,6 @@
   <button type="button" class="tab-btn" id="tabBtnCadastro" onclick="abrirAba('cadastro')">NOVO CADASTRO</button>
   <button type="button" class="tab-btn" id="tabBtnFrequencias" onclick="abrirAba('frequencias')">FREQUÊNCIAS</button>
 </div>
-  
-  <div class="tab-container">
-    <button type="button" class="tab-btn active" id="tabBtnAgendamento" onclick="abrirAba('agendamento')">AGENDAMENTO</button>
-    <button type="button" class="tab-btn" id="tabBtnCadastro" onclick="abrirAba('cadastro')">NOVO CADASTRO</button>
-  </div>
 
   <div id="viewAgendamento">
     <h2>Controle de Viagem</h2>
@@ -427,42 +422,43 @@
         <button type="button" onclick="limparCadastro()" style="background-color: #6c757d; margin-right: 10px; max-width: 150px;">LIMPAR</button>
         <button type="submit" id="btnSalvarCadastro" style="max-width: 200px;">SALVAR NA BASE</button>
       </div>
-      <div id="viewFrequencias" style="display:none;">
-  <h2>Resumo de Frequências</h2>
-  <div class="grid">
-    <div class="col-3">
-      <label>Mês/Ano (MM/AAAA)</label>
-      <input type="text" id="freqMesAno" placeholder="MM/AAAA" maxlength="7" oninput="mascaraMesAno(this)">
-    </div>
-    <div class="col-3" style="display:flex; align-items:end;">
-      <button type="button" id="btnGerarFrequencia" style="max-width: 180px; background-color: var(--primary);" onclick="gerarFrequencias()">GERAR</button>
-    </div>
-    <div class="col-12">
-      <div id="statusFrequencia" style="display:none; margin-top:8px; font-weight:bold;"></div>
-    </div>
-    <div class="col-12" style="overflow-x:auto;">
-      <table style="width:100%; border-collapse: collapse; margin-top: 8px;">
-        <thead>
-          <tr>
-            <th style="border:1px solid #ccc; padding:8px; text-align:left;">PASSAGENS</th>
-            <th style="border:1px solid #ccc; padding:8px;">PACIENTES</th>
-            <th style="border:1px solid #ccc; padding:8px;">ACOMP.</th>
-            <th style="border:1px solid #ccc; padding:8px;">TOTAL PESSOAS</th>
-            <th style="border:1px solid #ccc; padding:8px;">PASSAGENS DO MÊS</th>
-          </tr>
-        </thead>
-        <tbody id="tbodyFrequencia">
-          <tr><td colspan="5" style="border:1px solid #ccc; padding:10px; text-align:center;">Informe o mês e clique em GERAR.</td></tr>
-        </tbody>
-        <tfoot id="tfootFrequencia" style="display:none;"></tfoot>
-      </table>
-    </div>
-  </div>
-</div>
+      
       <div id="statusCadastro" style="margin-top: 10px; text-align: center;"></div>
     </form>
   </div>
-</div>
+  
+<div id="viewFrequencias" style="display:none;">
+    <h2>Resumo de Frequências</h2>
+    <div class="grid">
+      <div class="col-3">
+        <label>Mês/Ano (MM/AAAA)</label>
+        <input type="text" id="freqMesAno" placeholder="MM/AAAA" maxlength="7" oninput="mascaraMesAno(this)">
+      </div>
+      <div class="col-3" style="display:flex; align-items:end;">
+        <button type="button" id="btnGerarFrequencia" style="max-width: 180px; background-color: var(--primary);" onclick="gerarFrequencias()">GERAR</button>
+      </div>
+      <div class="col-12">
+        <div id="statusFrequencia" style="display:none; margin-top:8px; font-weight:bold;"></div>
+      </div>
+      <div class="col-12" style="overflow-x:auto;">
+        <table style="width:100%; border-collapse: collapse; margin-top: 8px;">
+          <thead>
+            <tr>
+              <th style="border:1px solid #ccc; padding:8px; text-align:left;">PASSAGENS</th>
+              <th style="border:1px solid #ccc; padding:8px;">PACIENTES</th>
+              <th style="border:1px solid #ccc; padding:8px;">ACOMP.</th>
+              <th style="border:1px solid #ccc; padding:8px;">TOTAL PESSOAS</th>
+              <th style="border:1px solid #ccc; padding:8px;">PASSAGENS DO MÊS</th>
+            </tr>
+          </thead>
+          <tbody id="tbodyFrequencia">
+            <tr><td colspan="5" style="border:1px solid #ccc; padding:10px; text-align:center;">Informe o mês e clique em GERAR.</td></tr>
+          </tbody>
+          <tfoot id="tfootFrequencia" style="display:none;"></tfoot>
+        </table>
+      </div>
+    </div>
+  </div>
 
 <div id="dupModal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="dupModalTitle" aria-describedby="dupModalMessage">
   <div class="modal-box">
