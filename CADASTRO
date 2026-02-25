@@ -30,6 +30,14 @@ function doGet(e) {
       .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
   }
 
+// ✅ NOVA ROTA — FREQUÊNCIA
+  if (e.parameter && e.parameter.page === 'frequencia') {
+    return HtmlService.createHtmlOutputFromFile('FREQUENCIA')
+      .setTitle('Frequência Mensal')
+      .addMetaTag('viewport', 'width=device-width, initial-scale=1')
+      .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+  }
+
   // Página principal
   return HtmlService.createHtmlOutputFromFile('PAGINA')
     .setTitle('Sistema de Saúde - Conceição')
@@ -98,7 +106,7 @@ function buscarDadosRelatorioJesus(mesReferencia, usuario, senha, destinosSeleci
     throw new Error("Formato inválido. Use MM/AAAA.");
   }
 
-  const ss = SpreadsheetApp.openById("12d04IePMmvgixxG3LHkDBsOBQB7aGR7qbIhKMucfDio");
+  const ss = SpreadsheetApp.openById("1yo_3kmN_e48VmY1pYf6Lcmp-hNhgwN43qmi8sFa4ixw");
   const relatorio = ss.getSheetByName("RELATORIO");
   if (!relatorio) throw new Error("Aba RELATORIO não encontrada.");
 
@@ -810,7 +818,7 @@ function buscarResumoMensal(mesAno, usuario, senha) {
     throw new Error("Formato inválido. Use MM/YYYY");
   }
 
-  const ss = SpreadsheetApp.openById("12d04IePMmvgixxG3LHkDBsOBQB7aGR7qbIhKMucfDio");
+  const ss = SpreadsheetApp.openById("1yo_3kmN_e48VmY1pYf6Lcmp-hNhgwN43qmi8sFa4ixw");
   const aba = ss.getSheetByName("RELATORIO");
   if (!aba) throw new Error("Aba RELATORIO não encontrada");
 
@@ -898,4 +906,74 @@ function buscarResumoMensal(mesAno, usuario, senha) {
   });
 
   return resumo;
+}
+
+
+
+function buscarDadosRelatorioJesusPorData(dataReferencia, usuario, senha) {
+  exigirLogin(usuario, senha);
+
+  if (!/^\d{2}\/\d{2}\/\d{4}$/.test(dataReferencia)) {
+    throw new Error("Formato inválido. Use DD/MM/AAAA.");
+  }
+
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const abaRel = ss.getSheetByName("RELATORIO");
+  const abaBase = ss.getSheetByName("BASE");
+  if (!abaRel) throw new Error("Aba RELATORIO não encontrada.");
+
+  const ult = abaRel.getLastRow();
+  if (ult < 7) return { palmas: [], portoNacional: [] };
+
+  const dados = abaRel.getRange(7, 1, ult - 6, 17).getDisplayValues();
+
+  let mapaTelefone = {};
+  if (abaBase && abaBase.getLastRow() > 1) {
+    const baseDados = abaBase.getRange(2, 2, abaBase.getLastRow() - 1, 10).getDisplayValues();
+    baseDados.forEach(b => {
+      const nome = String(b[0] || "").toUpperCase().trim();
+      if (nome && !mapaTelefone[nome]) mapaTelefone[nome] = b[8] || "";
+    });
+  }
+
+  const registros = dados
+    .filter(r => String(r[1]).trim() === dataReferencia)
+    .map(r => {
+      const nome = String(r[2] || "").trim();
+      const nomeChave = nome.toUpperCase();
+      const acompanhante1 = String(r[5] || "").trim();
+      const acompanhante2 = String(r[7] || "").trim();
+      const acompanhantes = [acompanhante1, acompanhante2].filter(Boolean).join(" / ") || "-";
+
+      return {
+        data: r[1],
+        paciente: nome,
+        acompanhante: acompanhantes,
+        telefone: mapaTelefone[nomeChave] || "-",
+        motivo: r[9] || "-",
+        horario: r[11] || "-",
+        local: r[16] || "-",
+        controle: r[0] || "-",
+        destino: String(r[10] || "").toUpperCase()
+      };
+    });
+
+  const palmas = [];
+  const portoNacional = [];
+
+  registros.forEach(reg => {
+    if (reg.destino.includes("PALMAS")) palmas.push(reg);
+    if (reg.destino.includes("PORTO NACIONAL")) portoNacional.push(reg);
+  });
+
+  const ordenar = (a, b) => {
+    if (a.horario < b.horario) return -1;
+    if (a.horario > b.horario) return 1;
+    return a.paciente.localeCompare(b.paciente, 'pt-BR');
+  };
+
+  palmas.sort(ordenar);
+  portoNacional.sort(ordenar);
+
+  return { palmas, portoNacional };
 }
