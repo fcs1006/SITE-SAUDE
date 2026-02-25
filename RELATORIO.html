@@ -78,17 +78,6 @@
     .filtro-destino-box.is-open { display: flex; }
     .filtro-destino-item { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #333; }
     .table-container { width: 100%; overflow-x: auto; }
-    .dashboard-grid { display: grid; grid-template-columns: repeat(2, minmax(280px, 1fr)); gap: 12px; margin-bottom: 18px; }
-    .dashboard-card { border: 1px solid #e3e7ec; border-radius: 8px; padding: 12px; background: #fff; }
-    .dashboard-card h3 { margin: 0 0 8px 0; font-size: 13px; color: #0b5ed7; text-transform: uppercase; }
-    .bar-list { display: flex; flex-direction: column; gap: 6px; } /*distancia da barra*/
-    .bar-item { display: grid; grid-template-columns: minmax(90px, 140px) 1fr auto; align-items: center; gap: 8px; font-size: 11px; }
-    .bar-label { overflow: visible; text-overflow: clip; white-space: normal; color: #444; }
-    .bar-track { height: 10px; background: #eef3f8; border-radius: 999px; overflow: hidden; }
-    .bar-fill { height: 100%; background: linear-gradient(90deg, #0d6efd, #3a8dff); border-radius: 999px; }
-    .bar-value { font-weight: 700; color: #0b5ed7; min-width: 26px; text-align: right; }
-    .dashboard-empty { font-size: 12px; color: #777; padding: 4px 0; }
-    @media (max-width: 860px) { .dashboard-grid { grid-template-columns: 1fr; } }
     table { width: 100%; border-collapse: collapse; font-size: 11px; table-layout: auto; }
     thead th { background-color: #0056b3; color: white; text-align: left; padding: 8px; font-weight: 600; text-transform: uppercase; white-space: nowrap; }
     tbody tr { background-color: white; border-bottom: 1px solid #dee2e6; }
@@ -106,7 +95,7 @@
     .texto-destaque { font-weight: 600; color: #000; }
 
     @media print {
-      .filter-bar, .top-buttons, #telaLogin, .modal-overlay, .dashboard-grid { display: none !important; }
+      .filter-bar, .top-buttons, #telaLogin, .modal-overlay { display: none !important; }
       /* Esconde o botão SAIR do cabeçalho na impressão */
       .header-sair { display: none !important; }
       
@@ -258,7 +247,7 @@
       <button class="btn btn-print" onclick="window.print()"><span class="material-icons">print</span> Imprimir</button>
       <button class="btn btn-edit" onclick="abrirModal('modalEditar')"><span class="material-icons">edit</span> Editar</button>
       <button class="btn btn-delete" onclick="abrirModal('modalExclusao')"><span class="material-icons">delete</span> Excluir</button>
-     <button class="btn" style="background-color:#4a148c; color:#fff;" onclick="abrirRelatorioJesus()"><span class="material-icons">description</span> JESUS</button>
+    </div>
   </div>
 
   <div class="filter-bar">
@@ -289,22 +278,6 @@
     <button class="btn btn-yellow" onclick="filtrarHoje()">Hoje</button>
     <button class="btn btn-delete" onclick="limparFiltros()">Limpar</button>
   </div>
-
-<div class="dashboard-grid" id="dashboardGrid">
-    <div class="dashboard-card">
-      <h3>Top Destinos (filtro atual)</h3>
-      <div id="graficoDestino" class="bar-list">
-        <div class="dashboard-empty">Carregando dados...</div>
-      </div>
-    </div>
-    <div class="dashboard-card">
-      <h3>Top Motivos (filtro atual)</h3>
-      <div id="graficoMotivo" class="bar-list">
-        <div class="dashboard-empty">Carregando dados...</div>
-      </div>
-    </div>
-  </div>
-
 
   <div class="table-container">
     <table id="tabelaDados">
@@ -377,25 +350,6 @@
 
   function sair() { localStorage.clear(); location.reload(); }
 
-  function abrirRelatorioJesus() {
-    const usuario = localStorage.getItem("sms_user");
-    const senha = localStorage.getItem("sms_pass");
-
-    google.script.run
-      .withSuccessHandler(urlBase => {
-        if (!urlBase) {
-          window.open('?page=jesus', '_blank');
-          return;
-        }
-        const separador = urlBase.includes('?') ? '&' : '?';
-        window.open(`${urlBase}${separador}page=jesus`, '_blank');
-      })
-      .withFailureHandler(() => {
-        window.open('?page=jesus', '_blank');
-      })
-      .obterUrlWebApp(usuario, senha);
-  }
-
   function carregarDados() {
     const u = localStorage.getItem("sms_user");
     const p = localStorage.getItem("sms_pass");
@@ -406,7 +360,6 @@
   function renderizarTabela(dados) {
      const tbody = document.getElementById("tabelaCorpo");
      document.getElementById("totalCount").innerText = `(${dados.length})`;
-      atualizarDashboard(dados);
      if (dados.length === 0) { tbody.innerHTML = `<tr><td colspan="13" style="text-align:center;">Nenhum registro encontrado.</td></tr>`; return; }     let html = "";
      dados.forEach(d => {
        const temAcomp = (d.acomp === "SIM") ? '<span style="color:green; font-weight:bold;">SIM</span>' : '<span style="color:#ccc;">-</span>';
@@ -414,44 +367,6 @@
        html += `<tr><td class="col-fixa">${d.data}</td><td class="col-fixa">${d.hora}</td><td class="col-nome texto-destaque">${d.nome}</td><td class="col-telefone">${telefone}</td><td class="col-destino">${d.destino}</td><td class="col-destino">${d.local || '-'}</td><td class="col-destino">${d.motivo}</td><td class="col-obs">${d.obs || ''}</td><td class="col-acomp">${temAcomp}</td><td class="col-nome" style="font-size:10px;">${d.nomeA1 || '-'}</td><td class="col-nome" style="font-size:10px;">${d.nomeA2 || '-'}</td><td class="col-obs">${d.obsA2 || '-'}</td><td class="col-resp">${d.resp || ''}</td></tr>`;     });
      tbody.innerHTML = html;
   }
-
-  function montarBarrasTop(dados, campo, containerId) {
-    const container = document.getElementById(containerId);
-    const contador = new Map();
-
-    dados.forEach(item => {
-      const valor = (item[campo] || '').toString().trim();
-      if (!valor) return;
-      contador.set(valor, (contador.get(valor) || 0) + 1);
-    });
-
-    const top = [...contador.entries()]
-      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'pt-BR'))
-      .slice(0, 6);
-
-    if (top.length === 0) {
-      container.innerHTML = '<div class="dashboard-empty">Sem dados para este filtro.</div>';
-      return;
-    }
-
-    const max = top[0][1];
-    container.innerHTML = top.map(([nome, qtd]) => {
-      const largura = Math.max(8, Math.round((qtd / max) * 100));
-      return `
-        <div class="bar-item" title="${nome}">
-          <span class="bar-label">${nome}</span>
-          <span class="bar-track"><span class="bar-fill" style="width:${largura}%;"></span></span>
-          <span class="bar-value">${qtd}</span>
-        </div>
-      `;
-    }).join('');
-  }
-
-  function atualizarDashboard(dados) {
-    montarBarrasTop(dados, 'destino', 'graficoDestino');
-    montarBarrasTop(dados, 'motivo', 'graficoMotivo');
-  }
-
 
   // --- GERENCIAMENTO DE MODAIS ---
   function abrirModal(id) {
