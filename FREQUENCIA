@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Frequência Mensal</title>
+  <style>
+    :root { --primary: #0056b3; --text: #222; --line: #111; }
+    body { margin: 0; padding: 20px; font-family: Arial, Helvetica, sans-serif; color: var(--text); background: #f4f4f4; }
+    .card { max-width: 1100px; margin: 0 auto; background: #fff; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,.08); padding: 18px; }
+    .toolbar { display: grid; grid-template-columns: 2fr 1fr 1fr auto auto; gap: 10px; align-items: end; margin-bottom: 14px; }
+    label { display: block; font-size: 12px; font-weight: bold; margin-bottom: 4px; }
+    input, select, button { width: 100%; box-sizing: border-box; padding: 9px 10px; border-radius: 4px; border: 1px solid #cfcfcf; font-size: 14px; }
+    button { background: var(--primary); border: none; color: #fff; cursor: pointer; font-weight: bold; }
+    button.secondary { background: #5a6268; }
+    button:disabled { background: #c9c9c9; cursor: not-allowed; }
+    .status { display: none; margin-bottom: 10px; padding: 8px 10px; border-radius: 4px; font-size: 13px; }
+    .status.ok { display: block; background: #e8f7eb; color: #1f7a35; }
+    .status.err { display: block; background: #fde8e8; color: #a12020; }
+
+    .espelho { background: #fff; border: 1px solid #ddd; padding: 14px; }
+    .cabecalho { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 8px; }
+    .titulo { font-size: 31px; margin: 0 0 8px; text-transform: uppercase; }
+    .linha { font-size: 28px; margin: 1px 0; text-transform: uppercase; font-weight: bold; }
+    .bloco-direito { text-align: right; align-self: end; }
+
+    table { width: 100%; border-collapse: collapse; }
+    .tabela-principal th, .tabela-principal td { border: 1px solid var(--line); font-size: 22px; padding: 4px 6px; height: 35px; }
+    .tabela-principal th { text-align: center; background: #f4f4f4; font-weight: bold; }
+    .tabela-principal .dia { width: 44px; text-align: center; font-weight: bold; }
+    .tabela-principal .turno { width: 112px; }
+    .tabela-principal .hora { width: 82px; text-align: center; }
+
+    .codigos { margin-top: 0; border: 1px solid #111; border-top: none; padding: 6px 8px; font-size: 12px; line-height: 1.3; text-transform: uppercase; }
+    .justificativas { margin-top: 0; border: 1px solid #111; border-top: none; min-height: 62px; padding: 4px 8px; font-size: 12px; text-transform: uppercase; }
+    .assinaturas { margin-top: 55px; }
+    .assinatura { margin: 58px auto 0; width: 66%; border-top: 1px solid #111; text-align: center; font-weight: bold; padding-top: 6px; }
+
+    .tiny-note { margin-top: 10px; font-size: 12px; color: #555; }
+
+    @media (max-width: 900px) {
+      .toolbar { grid-template-columns: 1fr; }
+      .bloco-direito { text-align: left; }
+      .tabela-principal th, .tabela-principal td { font-size: 12px; }
+      .linha { font-size: 14px; }
+      .titulo { font-size: 18px; }
+    }
+
+    @media print {
+      @page { size: A4 portrait; margin: 0.6cm; }
+      body { background: #fff; padding: 0; }
+      .card { box-shadow: none; border: none; padding: 0; max-width: none; }
+      .toolbar, .status, .tiny-note { display: none !important; }
+      .espelho { border: none; padding: 0; }
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="toolbar">
+      <div>
+        <label>Servidor (BASE FP)</label>
+        <input type="text" id="buscaServidor" list="listaServidores" placeholder="Digite nome ou matrícula">
+        <datalist id="listaServidores"></datalist>
+      </div>
+      <div>
+        <label>Mês</label>
+        <select id="mes"></select>
+      </div>
+      <div>
+        <label>Ano</label>
+        <input type="number" id="ano" min="2020" max="2099">
+      </div>
+      <div><button id="btnGerar" onclick="gerarFrequencia()">GERAR</button></div>
+      <div><button class="secondary" id="btnImprimir" onclick="window.print()" disabled>IMPRIMIR</button></div>
+    </div>
+
+    <div id="status" class="status"></div>
+
+    <div class="espelho" id="espelho">
+      <div class="cabecalho">
+        <div>
+          <h2 class="titulo">FOLHA DE FREQUÊNCIA</h2>
+          <p class="linha">NOME: <span id="outNome">-</span></p>
+          <p class="linha">LOTAÇÃO: <span id="outLotacao">-</span></p>
+          <p class="linha">FUNÇÃO: <span id="outFuncao">-</span></p>
+          <p class="linha">MATRÍCULA: <span id="outMatricula">-</span></p>
+        </div>
+        <div class="bloco-direito">
+          <p class="linha">FUNDO MUN. SAÚDE DE CONCEIÇÃO DO TO</p>
+          <p class="linha">CNPJ: <span id="outCnpj">-</span></p>
+          <p class="linha">MÊS REF: <span id="outMesRef">-</span></p>
+        </div>
+      </div>
+
+      <table class="tabela-principal">
+        <thead>
+          <tr>
+            <th rowspan="2">DIA</th>
+            <th rowspan="2">ENTRADA</th>
+            <th rowspan="2">HORA</th>
+            <th rowspan="2">SAÍDA</th>
+            <th rowspan="2">HORA</th>
+            <th rowspan="2">ENTRADA</th>
+            <th rowspan="2">HORA</th>
+            <th rowspan="2">SAÍDA</th>
+            <th rowspan="2">HORA</th>
+            <th colspan="2">HORA EXTRA</th>
+          </tr>
+          <tr>
+            <th>ENTRADA</th>
+            <th>SAÍDA</th>
+          </tr>
+        </thead>
+        <tbody id="tbodyFrequencia"></tbody>
+      </table>
+
+      <div class="codigos">
+        <strong>CÓDIGO AFASTAMENTO:</strong>
+        002 - ACIDENTE DE TRABALHO; 003 - LICENÇA MATERNIDADE (120 DIAS); 004 - SERVIÇO MILITAR;
+        024 - JUSTIÇA ELEITORAL; 027 - LICENÇA ADOÇÃO; 036 - LICENÇA ACOMPANHAMENTO 044 - ATESTADO MÉDICO;
+        046 - LICENÇA ADMINISTRATIVA; 065 - LICENÇA NOJO; 150 - FALTAS COMPENSADAS; 151 - ABONO ASSIDUIDADE;
+        152 - CASAMENTO (05 DIAS); 153 - LICENÇA PATERNIDADE (05 DIAS); 154 - DOAÇÃO SANGUE;
+        155 - JURADO DE TRIBUNAL; 156 - DEPOR NA JUSTIÇA; 157 - ATIVIDADE SINDICAL; 158 - COMPARECIMENTO NA JUSTIÇA;
+        159 - CELEBRAÇÃO DE CASAMENTO (JUIZ DE PAZ); 160 - COMPENSAÇÃO DE HORAS EXTRAS; 161 - FALTAS NÃO ABONADAS;
+        162 - FALTAS INJUSTIFICADAS; 163 - SUSPENSÃO CONVERTIDAS EM MULTAS; 164 - EXAME VESTIBULAR;
+        165 - LICENÇA ADMINISTRATIVA NÃO REMUNERADA; 167 - LICENÇA BENEFÍCIO; 168 - BENEFÍCIO NÃO REMUNERADO;
+        169 - OUTRO AFASTAMENTO; 170 - CONTRATO SOB JÚDICE; 171 - INVALIDEZ TEMPORÁRIA; 172 - ADVERTÊNCIA.
+      </div>
+      <div class="justificativas"><strong>JUSTIFICATIVAS:</strong></div>
+
+      <div class="assinaturas">
+        <div class="assinatura">ASSINATURA</div>
+        <div class="assinatura">ASSINATURA E CARIMBO DO CHEFE IMEDIATO</div>
+      </div>
+    </div>
+
+    <div class="tiny-note">Obs.: sábados e domingos são preenchidos automaticamente no espelho inicial.</div>
+  </div>
+
+  <script>
+    const estado = { servidores: [], selecionado: null };
+
+    window.onload = () => {
+      inicializarMesAno();
+      renderizarLinhasVazias();
+      configurarBusca();
+    };
+
+    function inicializarMesAno() {
+      const mes = document.getElementById('mes');
+      const meses = ['01','02','03','04','05','06','07','08','09','10','11','12'];
+      mes.innerHTML = meses.map((m, i) => `<option value="${i + 1}">${m}</option>`).join('');
+      const hoje = new Date();
+      mes.value = String(hoje.getMonth() + 1);
+      document.getElementById('ano').value = hoje.getFullYear();
+    }
+
+    function configurarBusca() {
+      const input = document.getElementById('buscaServidor');
+      let timer = null;
+
+      input.addEventListener('input', () => {
+        clearTimeout(timer);
+        timer = setTimeout(() => carregarServidores(input.value), 250);
+      });
+
+      input.addEventListener('change', () => {
+        const valor = input.value || '';
+        const encontrado = estado.servidores.find((s) => `${s.nome} (${s.matricula})` === valor);
+        estado.selecionado = encontrado || null;
+      });
+    }
+
+    function carregarServidores(termo) {
+      const user = localStorage.getItem('sms_user');
+      const pass = localStorage.getItem('sms_pass');
+      if (!user || !pass) {
+        exibirStatus('Faça login no sistema principal antes de usar a frequência.', true);
+        return;
+      }
+
+      google.script.run
+        .withSuccessHandler((lista) => {
+          estado.servidores = lista || [];
+          const datalist = document.getElementById('listaServidores');
+          datalist.innerHTML = '';
+          const fragment = document.createDocumentFragment();
+          estado.servidores.forEach((s) => {
+            const op = document.createElement('option');
+            op.value = `${s.nome} (${s.matricula})`;
+            fragment.appendChild(op);
+          });
+          datalist.appendChild(fragment);
+        })
+        .withFailureHandler((err) => {
+          exibirStatus(`Erro ao buscar BASE FP: ${extrairErro(err)}`, true);
+        })
+        .buscarServidoresFrequencia(user, pass, termo || '');
+    }
+
+    function gerarFrequencia() {
+      if (!estado.selecionado) {
+        exibirStatus('Selecione um servidor da lista.', true);
+        return;
+      }
+
+      const user = localStorage.getItem('sms_user');
+      const pass = localStorage.getItem('sms_pass');
+      const mes = Number(document.getElementById('mes').value);
+      const ano = Number(document.getElementById('ano').value);
+
+      const btn = document.getElementById('btnGerar');
+      btn.disabled = true;
+
+      google.script.run
+        .withSuccessHandler((espelho) => {
+          preencherCabecalho(espelho);
+          renderizarLinhas(espelho.dias || []);
+          document.getElementById('btnImprimir').disabled = false;
+          exibirStatus('Espelho de frequência gerado com sucesso.', false);
+          btn.disabled = false;
+        })
+        .withFailureHandler((err) => {
+          exibirStatus(`Falha ao gerar frequência: ${extrairErro(err)}`, true);
+          btn.disabled = false;
+        })
+        .gerarEspelhoFrequencia({ matricula: estado.selecionado.matricula, mes, ano }, user, pass);
+    }
+
+    function preencherCabecalho(d) {
+      document.getElementById('outNome').textContent = d.nome || '-';
+      document.getElementById('outLotacao').textContent = d.lotacao || '-';
+      document.getElementById('outFuncao').textContent = d.funcao || '-';
+      document.getElementById('outMatricula').textContent = d.matricula || '-';
+      document.getElementById('outMesRef').textContent = d.mesReferencia || '-';
+      document.getElementById('outCnpj').textContent = d.cnpj || '-';
+    }
+
+    function renderizarLinhas(dias) {
+      const tbody = document.getElementById('tbodyFrequencia');
+      tbody.innerHTML = '';
+
+      for (let i = 0; i < 31; i++) {
+        const item = dias[i] || { dia: i + 1, marcador: '' };
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td class="dia">${item.dia}</td>
+          <td class="turno">${item.marcador || ''}</td>
+          <td class="hora"></td>
+          <td class="turno">${item.marcador || ''}</td>
+          <td class="hora"></td>
+          <td class="turno">${item.marcador || ''}</td>
+          <td class="hora"></td>
+          <td class="turno">${item.marcador || ''}</td>
+          <td class="hora"></td>
+          <td class="hora"></td>
+          <td class="hora"></td>
+        `;
+        tbody.appendChild(tr);
+      }
+    }
+
+    function renderizarLinhasVazias() {
+      renderizarLinhas(Array.from({ length: 31 }, (_, i) => ({ dia: i + 1, marcador: '' })));
+    }
+
+    function exibirStatus(msg, erro) {
+      const st = document.getElementById('status');
+      st.className = `status ${erro ? 'err' : 'ok'}`;
+      st.textContent = msg;
+    }
+
+    function extrairErro(err) {
+      if (!err) return 'erro desconhecido';
+      if (err.message) return err.message;
+      return String(err);
+    }
+  </script>
+</body>
+</html>
