@@ -36,13 +36,14 @@ function buscarServidoresFrequencia(usuario, senha, termo) {
   const termoFiltro = String(termo || '').trim().toUpperCase();
 
   const lista = linhas
-    .map((row) => ({
+    .map((row, i) => ({
       nome: String(row[idx.nome] || '').trim(),
       matricula: String(row[idx.matricula] || '').trim(),
       lotacao: idx.lotacao >= 0 ? String(row[idx.lotacao] || '').trim() : '',
-      funcao: idx.funcao >= 0 ? String(row[idx.funcao] || '').trim() : ''
+      funcao: idx.funcao >= 0 ? String(row[idx.funcao] || '').trim() : '',
+      linhaBase: i + FREQUENCIA_CONFIG.LINHA_CABECALHO + 1
     }))
-    .filter((r) => r.nome && r.matricula)
+    .filter((r) => r.nome)
     .filter((r) => {
       if (!termoFiltro) return true;
       return r.nome.toUpperCase().includes(termoFiltro) || r.matricula.toUpperCase().includes(termoFiltro);
@@ -58,15 +59,20 @@ function gerarEspelhoFrequencia(dados, usuario, senha) {
   const mes = Number(dados && dados.mes);
   const ano = Number(dados && dados.ano);
   const matricula = String((dados && dados.matricula) || '').trim();
+  const linhaBase = Number(dados && dados.linhaBase);
+  const diasFacultativos = normalizarDiasFacultativos_((dados && dados.diasFacultativos) || []);
 
   if (!mes || mes < 1 || mes > 12) throw new Error('Mês inválido.');
   if (!ano || ano < 2000) throw new Error('Ano inválido.');
-  if (!matricula) throw new Error('Matrícula é obrigatória.');
+  if (!linhaBase && !matricula) throw new Error('Selecione um servidor válido.');
 
-  const servidor = buscarServidorPorMatriculaFP_(matricula);
+const servidor = linhaBase
+    ? buscarServidorPorLinhaFP_(linhaBase)
+    : buscarServidorPorMatriculaFP_(matricula);
   if (!servidor) throw new Error('Servidor não encontrado na BASE FP.');
 
-  const dias = montarGradeDiasFrequencia_(ano, mes);
+  const feriadosNacionais = obterFeriadosNacionais_(ano, mes);
+  const dias = montarGradeDiasFrequencia_(ano, mes, feriadosNacionais, diasFacultativos);
   const mesRef = `${String(mes).padStart(2, '0')}/${ano}`;
 
   return {
@@ -76,9 +82,46 @@ function gerarEspelhoFrequencia(dados, usuario, senha) {
     funcao: servidor.funcao,
     mesReferencia: mesRef,
     cnpj: FREQUENCIA_CONFIG.CNPJ_PADRAO,
-    dias
+    dias,
+    feriados: feriadosNacionais,
+    diasFacultativos
   };
 }
+
+
+function buscarServidorPorLinhaFP_(linhaBase) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const aba = ss.getSheetByName(FREQUENCIA_CONFIG.ABA_BASE_FP);
+  if (!aba) throw new Error(`Aba ${FREQUENCIA_CONFIG.ABA_BASE_FP} não encontrada.`);
+
+  const ultimaLinha = aba.getLastRow();
+  const ultimaColuna = aba.getLastColumn();
+  if (linhaBase <= FREQUENCIA_CONFIG.LINHA_CABECALHO || linhaBase > ultimaLinha) return null;
+
+  const dados = aba
+    .getRange(FREQUENCIA_CONFIG.LINHA_CABECALHO, 1, ultimaLinha - FREQUENCIA_CONFIG.LINHA_CABECALHO + 1, ultimaColuna)
+    .getDisplayValues();
+
+  const cabecalho = dados[0].map((h) => String(h || '').trim().toUpperCase());
+  const idxNome = encontrarIndiceColuna(cabecalho, ['NOME', 'SERVIDOR', 'NOME SERVIDOR', 'FUNCIONARIO', 'FUNCIONÁRIO']);
+  const idxMatricula = encontrarIndiceColuna(cabecalho, ['MATRICULA', 'MATRÍCULA', 'MATRIC']);
+  const idxLotacao = encontrarIndiceColuna(cabecalho, ['LOTACAO', 'LOTAÇÃO', 'ORGAO', 'ÓRGÃO', 'SETOR']);
+  const idxFuncao = encontrarIndiceColuna(cabecalho, ['FUNCAO', 'FUNÇÃO', 'CARGO']);
+
+  if (idxNome < 0 || idxMatricula < 0) {
+    throw new Error('Não foi possível identificar as colunas NOME e MATRÍCULA na BASE FP.');
+  }
+
+  const indiceArray = linhaBase - FREQUENCIA_CONFIG.LINHA_CABECALHO - 1;
+  const row = dados[indiceArray + 1];
+  if (!row) return null;
+
+  return {
+    nome: String(row[idxNome] || '').trim(),
+    matricula: String(row[idxMatricula] || '').trim() || '-',
+    lotacao: idxLotacao >= 0 ? String(row[idxLotacao] || '').trim() : '',
+    funcao: idxFuncao >= 0 ? String(row[idxFuncao] || '').trim() : ''    };
+  }
 
 function buscarServidorPorMatriculaFP_(matricula) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -123,24 +166,167 @@ function buscarServidorPorMatriculaFP_(matricula) {
   return null;
 }
 
-function montarGradeDiasFrequencia_(ano, mes) {
+function montarGradeDiasFrequencia_(ano, mes, feriadosNacionais, diasFacultativos) {
   const ultimoDia = new Date(ano, mes, 0).getDate();
   const resultado = [];
+  const mapaFeriados = construirMapaFeriadosPorDia_(feriadosNacionais || []);
+  const mapaFacultativos = construirMapaFacultativosPorDia_(diasFacultativos || []);
 
   for (let dia = 1; dia <= 31; dia++) {
     let marcador = '';
+    let tipoMarcador = '';
 
     if (dia <= ultimoDia) {
       const d = new Date(ano, mes - 1, dia);
       const diaSemana = d.getDay();
-      if (diaSemana === 0) marcador = 'DOMINGO';
-      if (diaSemana === 6) marcador = 'SÁBADO';
+        if (diaSemana === 0) {
+        marcador = 'DOMINGO';
+        tipoMarcador = 'DOMINGO';
+      }
+      if (diaSemana === 6) {
+        marcador = 'SÁBADO';
+        tipoMarcador = 'SABADO';
+      }
+
+      if (mapaFeriados[dia]) {
+        marcador = 'FERIADO';
+        tipoMarcador = 'FERIADO';
+      }
+
+      if (mapaFacultativos[dia]) {
+        marcador = 'FACULTATIVO';
+      }
     }
 
-    resultado.push({ dia, marcador });
+        resultado.push({ dia, marcador, tipoMarcador });
   }
 
   return resultado;
+}
+
+function obterFeriadosNacionais_(ano, mes) {
+  const cache = CacheService.getScriptCache();
+  const chave = `feriados_nacionais_${ano}_${mes}`;
+  const emCache = cache.get(chave);
+  if (emCache) {
+    try {
+      return JSON.parse(emCache);
+    } catch (e) {
+      // ignora cache inválido
+    }
+  }
+
+  const url = `https://brasilapi.com.br/api/feriados/v1/${ano}`;
+  try {
+    const resp = UrlFetchApp.fetch(url, { muteHttpExceptions: true });
+    const status = resp.getResponseCode();
+    if (status >= 200 && status < 300) {
+      const payload = JSON.parse(resp.getContentText() || '[]');
+      const filtrados = payload
+        .map((f) => ({
+          data: String(f.date || '').trim(),
+          nome: String(f.name || '').trim(),
+          tipo: String(f.type || '').trim().toUpperCase()
+        }))
+        .filter((f) => /^\d{4}-\d{2}-\d{2}$/.test(f.data))
+        .filter((f) => Number(f.data.split('-')[1]) === mes)
+        .map((f) => ({ dia: Number(f.data.split('-')[2]), nome: f.nome || 'FERIADO NACIONAL' }));
+
+      cache.put(chave, JSON.stringify(filtrados), 21600);
+      return filtrados;
+    }
+  } catch (e) {
+    Logger.log(`Falha ao consultar feriados nacionais: ${e}`);
+  }
+
+  return obterFeriadosNacionaisFallback_(ano, mes);
+}
+
+function obterFeriadosNacionaisFallback_(ano, mes) {
+  const pascoa = calcularDomingoPascoa_(ano);
+  const mmdd = (m, d) => ({ mes: m, dia: d });
+
+  const fixos = [
+    { ...mmdd(1, 1), nome: 'CONFRATERNIZAÇÃO UNIVERSAL' },
+    { ...mmdd(4, 21), nome: 'TIRADENTES' },
+    { ...mmdd(5, 1), nome: 'DIA DO TRABALHADOR' },
+    { ...mmdd(9, 7), nome: 'INDEPENDÊNCIA DO BRASIL' },
+    { ...mmdd(10, 12), nome: 'NOSSA SENHORA APARECIDA' },
+    { ...mmdd(11, 2), nome: 'FINADOS' },
+    { ...mmdd(11, 15), nome: 'PROCLAMAÇÃO DA REPÚBLICA' },
+    { ...mmdd(11, 20), nome: 'DIA NACIONAL DE ZUMBI E DA CONSCIÊNCIA NEGRA' },
+    { ...mmdd(12, 25), nome: 'NATAL' }
+  ];
+
+  const moveis = [
+    { data: adicionarDias_(pascoa, -48), nome: 'CARNAVAL' },
+    { data: adicionarDias_(pascoa, -47), nome: 'CARNAVAL' },
+    { data: adicionarDias_(pascoa, -2), nome: 'SEXTA-FEIRA SANTA' },
+    { data: adicionarDias_(pascoa, 60), nome: 'CORPUS CHRISTI' }
+  ]
+    .map((m) => ({ mes: m.data.getMonth() + 1, dia: m.data.getDate(), nome: m.nome }));
+
+  return fixos
+    .concat(moveis)
+    .filter((f) => f.mes === mes)
+    .map((f) => ({ dia: f.dia, nome: f.nome }));
+}
+
+function normalizarDiasFacultativos_(dias) {
+  return (dias || [])
+    .map((item) => {
+      if (typeof item === 'number' || typeof item === 'string') {
+        return { dia: Number(item), descricao: 'FACULTATIVO' };
+      }
+      const dia = Number(item && item.dia);
+      const descricao = String((item && item.descricao) || 'FACULTATIVO').trim() || 'FACULTATIVO';
+      return { dia, descricao };
+    })
+    .filter((item) => Number.isInteger(item.dia) && item.dia >= 1 && item.dia <= 31);
+}
+
+function construirMapaFeriadosPorDia_(feriados) {
+  const mapa = {};
+  for (let i = 0; i < feriados.length; i++) {
+    const item = feriados[i];
+    if (!item || !item.dia) continue;
+    mapa[item.dia] = item.nome || 'FERIADO NACIONAL';
+  }
+  return mapa;
+}
+
+function construirMapaFacultativosPorDia_(facultativos) {
+  const mapa = {};
+  for (let i = 0; i < facultativos.length; i++) {
+    const item = facultativos[i];
+    if (!item || !item.dia) continue;
+    mapa[item.dia] = item.descricao || true;
+  }
+  return mapa;
+}
+
+function calcularDomingoPascoa_(ano) {
+  const a = ano % 19;
+  const b = Math.floor(ano / 100);
+  const c = ano % 100;
+  const d = Math.floor(b / 4);
+  const e = b % 4;
+  const f = Math.floor((b + 8) / 25);
+  const g = Math.floor((b - f + 1) / 3);
+  const h = (19 * a + b - d - g + 15) % 30;
+  const i = Math.floor(c / 4);
+  const k = c % 4;
+  const l = (32 + 2 * e + 2 * i - h - k) % 7;
+  const m = Math.floor((a + 11 * h + 22 * l) / 451);
+  const mes = Math.floor((h + l - 7 * m + 114) / 31);
+  const dia = ((h + l - 7 * m + 114) % 31) + 1;
+  return new Date(ano, mes - 1, dia);
+}
+
+function adicionarDias_(data, dias) {
+  const d = new Date(data.getTime());
+  d.setDate(d.getDate() + dias);
+  return d;
 }
 
 function encontrarIndiceColuna(cabecalho, opcoes) {
