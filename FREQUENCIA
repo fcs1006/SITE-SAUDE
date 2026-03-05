@@ -6,52 +6,63 @@
   <title>Frequência Mensal</title>
   <style>
     :root { --primary: #0056b3; --text: #222; --line: #111; }
-    body { margin: 0; padding: 20px; font-family: Arial, Helvetica, sans-serif; color: var(--text); background: #f4f4f4; }
-    .card { max-width: 1100px; margin: 0 auto; background: #fff; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,.08); padding: 18px; }
+   body { margin: 0; padding: 14px; font-family: Arial, Helvetica, sans-serif; color: var(--text); background: #f4f4f4; }
+    .card { max-width: 1020px; margin: 0 auto; background: #fff; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,.08); padding: 12px; }
     .toolbar { display: grid; grid-template-columns: 2fr 1fr 1fr auto auto; gap: 10px; align-items: end; margin-bottom: 14px; }
+     .facultativo-toolbar { display: grid; grid-template-columns: 120px 1fr auto auto; gap: 10px; margin-bottom: 14px; align-items: end; }
     label { display: block; font-size: 12px; font-weight: bold; margin-bottom: 4px; }
     input, select, button { width: 100%; box-sizing: border-box; padding: 9px 10px; border-radius: 4px; border: 1px solid #cfcfcf; font-size: 14px; }
     button { background: var(--primary); border: none; color: #fff; cursor: pointer; font-weight: bold; }
     button.secondary { background: #5a6268; }
+    button.warn { background: #8a3131; }
     button:disabled { background: #c9c9c9; cursor: not-allowed; }
     .status { display: none; margin-bottom: 10px; padding: 8px 10px; border-radius: 4px; font-size: 13px; }
     .status.ok { display: block; background: #e8f7eb; color: #1f7a35; }
     .status.err { display: block; background: #fde8e8; color: #a12020; }
 
-    .espelho { background: #fff; border: 1px solid #ddd; padding: 14px; }
-    .cabecalho { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 8px; }
-    .titulo { font-size: 31px; margin: 0 0 8px; text-transform: uppercase; }
-    .linha { font-size: 28px; margin: 1px 0; text-transform: uppercase; font-weight: bold; }
+    .espelho { background: #fff; border: 1px solid #ddd; padding: 1px; }
+    .cabecalho { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; margin-bottom: 6px; }
+    .titulo { font-size: 18px; margin: 0 0 4px; text-transform: uppercase; }
+    .linha { font-size: 12px; margin: 0; text-transform: uppercase; font-weight: bold; line-height: 1.15; }
     .bloco-direito { text-align: right; align-self: end; }
+    .logo-area { text-align: center; margin-bottom: 4px; }
+    .logo-area img { width: 120px; height: auto; }
 
     table { width: 100%; border-collapse: collapse; }
-    .tabela-principal th, .tabela-principal td { border: 1px solid var(--line); font-size: 22px; padding: 4px 6px; height: 35px; }
-    .tabela-principal th { text-align: center; background: #f4f4f4; font-weight: bold; }
-    .tabela-principal .dia { width: 44px; text-align: center; font-weight: bold; }
-    .tabela-principal .turno { width: 112px; }
-    .tabela-principal .hora { width: 82px; text-align: center; }
+    .tabela-principal th, .tabela-principal td { border: 1px solid var(--line); font-size: 12px; padding: 2px 4px; height: 22px; }
+    .tabela-principal th { text-align: center; background: #f4f4f4; font-weight: bold; font-size: 12px; }
+    .tabela-principal .dia { width: 34px; text-align: center; font-weight: bold; }
+    .tabela-principal .turno { width: 96px; }
+    .tabela-principal .hora { width: 64px; text-align: center; }
+    .marcador-feriado { background: #fbe5c8; }
+    .marcador-facultativo { background: #d9e8fb; }
 
-    .codigos { margin-top: 0; border: 1px solid #111; border-top: none; padding: 6px 8px; font-size: 12px; line-height: 1.3; text-transform: uppercase; }
-    .justificativas { margin-top: 0; border: 1px solid #111; border-top: none; min-height: 62px; padding: 4px 8px; font-size: 12px; text-transform: uppercase; }
-    .assinaturas { margin-top: 55px; }
-    .assinatura { margin: 58px auto 0; width: 66%; border-top: 1px solid #111; text-align: center; font-weight: bold; padding-top: 6px; }
+    .codigos { margin-top: 0; border: 1px solid #111; border-top: none; padding: 4px 6px; font-size: 9px; line-height: 1.25; text-transform: uppercase; }
+    .justificativas { margin-top: 0; border: 1px solid #111; border-top: none; min-height: 24px; padding: 3px 6px; font-size: 8px; text-transform: uppercase; }
+    .assinaturas { margin-top: 10px; font-size: 12px;}
+    .assinatura { margin: 40px auto 0; width: 62%; border-top: 1px solid #111; text-align: center; font-weight: bold; padding-top: 4px; font-size: 11px; }
 
-    .tiny-note { margin-top: 10px; font-size: 12px; color: #555; }
+    .tiny-note { margin-top: 8px; font-size: 11px; color: #555; }
 
     @media (max-width: 900px) {
-      .toolbar { grid-template-columns: 1fr; }
-      .bloco-direito { text-align: left; }
-      .tabela-principal th, .tabela-principal td { font-size: 12px; }
-      .linha { font-size: 14px; }
-      .titulo { font-size: 18px; }
+      .toolbar, .facultativo-toolbar { grid-template-columns: 1fr; }
+      .bloco-direito { text-align: right; }
+      .tabela-principal th, .tabela-principal td { font-size: 10px; }
+      .linha { font-size: 10px; }
+      .titulo { font-size: 15px; }
     }
 
     @media print {
-      @page { size: A4 portrait; margin: 0.6cm; }
+      @page { size: A4 portrait; margin: 0.45cm; }
       body { background: #fff; padding: 0; }
       .card { box-shadow: none; border: none; padding: 0; max-width: none; }
-      .toolbar, .status, .tiny-note { display: none !important; }
-      .espelho { border: none; padding: 0; }
+      .toolbar, .facultativo-toolbar, .status, .tiny-note { display: none !important; }
+      .espelho { border: none; padding: none; }
+      .logo-area { margin-bottom: 0px; }
+      .logo-area img { width: 100px; }
+      .linha { font-size: 12px; }
+      .titulo { font-size: 12px; }
+      .tabela-principal th, .tabela-principal td { font-size: 10px; padding: 2px 3px; height: 16px; }
     }
   </style>
 </head>
@@ -75,12 +86,28 @@
       <div><button class="secondary" id="btnImprimir" onclick="window.print()" disabled>IMPRIMIR</button></div>
     </div>
 
+     <div class="facultativo-toolbar">
+      <div>
+        <label>Dia facultativo</label>
+        <input type="number" id="diaFacultativo" min="1" max="31" placeholder="Ex.: 12">
+      </div>
+      <div>
+        <label>Descrição</label>
+        <input type="text" id="descFacultativo" placeholder="Ex.: PONTO FACULTATIVO">
+      </div>
+      <div><button type="button" onclick="adicionarFacultativo()">ADICIONAR</button></div>
+      <div><button type="button" class="warn" onclick="removerFacultativo()">REMOVER</button></div>
+    </div>
+
     <div id="status" class="status"></div>
 
     <div class="espelho" id="espelho">
+       <div class="logo-area">
+        <img src="https://lh3.googleusercontent.com/u/0/d/1uRm9gJZ7sShqkZJSu9w7R7LgQ6PgtPnu" alt="Logo Prefeitura">
+      </div>
       <div class="cabecalho">
         <div>
-          <h2 class="titulo">FOLHA DE FREQUÊNCIA</h2>
+          <h3 class="titulo">FOLHA DE FREQUÊNCIA</h3>
           <p class="linha">NOME: <span id="outNome">-</span></p>
           <p class="linha">LOTAÇÃO: <span id="outLotacao">-</span></p>
           <p class="linha">FUNÇÃO: <span id="outFuncao">-</span></p>
@@ -135,17 +162,22 @@
       </div>
     </div>
 
-    <div class="tiny-note">Obs.: sábados e domingos são preenchidos automaticamente no espelho inicial.</div>
+    <div class="tiny-note">Obs.: sábados, domingos e feriados nacionais são preenchidos automaticamente. Use o ajuste de dia facultativo quando necessário.</div>
   </div>
 
   <script>
-    const estado = { servidores: [], selecionado: null };
+    const estado = { servidores: [], selecionado: null, espelhoAtual: null, diasFacultativos: {} };
 
     window.onload = () => {
       inicializarMesAno();
       renderizarLinhasVazias();
       configurarBusca();
     };
+
+    function formatarOpcaoServidor(s) {
+      const matricula = String((s && s.matricula) || '').trim() || '-';
+      return `${s.nome} (${matricula})`;
+    }
 
     function inicializarMesAno() {
       const mes = document.getElementById('mes');
@@ -167,7 +199,7 @@
 
       input.addEventListener('change', () => {
         const valor = input.value || '';
-        const encontrado = estado.servidores.find((s) => `${s.nome} (${s.matricula})` === valor);
+          const encontrado = estado.servidores.find((s) => formatarOpcaoServidor(s) === valor);
         estado.selecionado = encontrado || null;
       });
     }
@@ -188,7 +220,7 @@
           const fragment = document.createDocumentFragment();
           estado.servidores.forEach((s) => {
             const op = document.createElement('option');
-            op.value = `${s.nome} (${s.matricula})`;
+            op.value = formatarOpcaoServidor(s);
             fragment.appendChild(op);
           });
           datalist.appendChild(fragment);
@@ -215,6 +247,7 @@
 
       google.script.run
         .withSuccessHandler((espelho) => {
+          estado.espelhoAtual = espelho;
           preencherCabecalho(espelho);
           renderizarLinhas(espelho.dias || []);
           document.getElementById('btnImprimir').disabled = false;
@@ -225,7 +258,39 @@
           exibirStatus(`Falha ao gerar frequência: ${extrairErro(err)}`, true);
           btn.disabled = false;
         })
-        .gerarEspelhoFrequencia({ matricula: estado.selecionado.matricula, mes, ano }, user, pass);
+        .gerarEspelhoFrequencia({
+          matricula: estado.selecionado.matricula,
+          linhaBase: estado.selecionado.linhaBase,
+          mes,
+          ano,
+          diasFacultativos: listarFacultativosComoArray()
+        }, user, pass);
+    }
+
+    function adicionarFacultativo() {
+      const dia = Number(document.getElementById('diaFacultativo').value);
+      const descricao = String(document.getElementById('descFacultativo').value || 'FACULTATIVO').trim() || 'FACULTATIVO';
+      if (!Number.isInteger(dia) || dia < 1 || dia > 31) {
+        exibirStatus('Informe um dia válido (1 a 31) para facultativo.', true);
+        return;
+      }
+      estado.diasFacultativos[dia] = descricao;
+      exibirStatus(`Dia ${dia} marcado como facultativo. Clique em GERAR para aplicar.`, false);
+    }
+
+    function removerFacultativo() {
+      const dia = Number(document.getElementById('diaFacultativo').value);
+      if (!Number.isInteger(dia) || dia < 1 || dia > 31) {
+        exibirStatus('Informe um dia válido (1 a 31) para remover facultativo.', true);
+        return;
+      }
+      delete estado.diasFacultativos[dia];
+      exibirStatus(`Facultativo removido do dia ${dia}. Clique em GERAR para atualizar.`, false);
+    }
+
+    function listarFacultativosComoArray() {
+      return Object.keys(estado.diasFacultativos)
+        .map((dia) => ({ dia: Number(dia), descricao: estado.diasFacultativos[dia] }));
     }
 
     function preencherCabecalho(d) {
@@ -242,8 +307,11 @@
       tbody.innerHTML = '';
 
       for (let i = 0; i < 31; i++) {
-        const item = dias[i] || { dia: i + 1, marcador: '' };
+        const item = dias[i] || { dia: i + 1, marcador: '', tipoMarcador: '' };
         const tr = document.createElement('tr');
+        if (item.tipoMarcador === 'FERIADO') tr.classList.add('marcador-feriado');
+        if (item.tipoMarcador === 'FACULTATIVO') tr.classList.add('marcador-facultativo');
+
         tr.innerHTML = `
           <td class="dia">${item.dia}</td>
           <td class="turno">${item.marcador || ''}</td>
@@ -262,7 +330,7 @@
     }
 
     function renderizarLinhasVazias() {
-      renderizarLinhas(Array.from({ length: 31 }, (_, i) => ({ dia: i + 1, marcador: '' })));
+    renderizarLinhas(Array.from({ length: 31 }, (_, i) => ({ dia: i + 1, marcador: '', tipoMarcador: '' })));
     }
 
     function exibirStatus(msg, erro) {
