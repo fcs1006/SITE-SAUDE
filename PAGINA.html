@@ -242,10 +242,10 @@
         <div class="col-12"><h3>Dados do Paciente</h3></div>
         <div class="col-6">
           <label>Nome do Paciente *</label>
-        <input type="text" id="nome" list="listaNomes" oninput="mascaraNome(this); debouncedBusca(this.value, 'P')" placeholder="Digite 3 letras para buscar..." autocomplete="off" required>
+        <input type="text" id="nome" list="listaNomes" oninput="mascaraNome(this); debouncedBusca(this.value, 'P')" placeholder="Digite nome ou CPF/CNS para buscar..." autocomplete="off" required>
           <datalist id="listaNomes"></datalist>
         </div>
-        <div class="col-3"><label>CPF/CNS *</label><input type="text" id="cpf" required oninput="mascaraCpfCns(this)"></div>
+        <div class="col-3"><label>CPF/CNS *</label><input type="text" id="cpf" required oninput="mascaraCpfCns(this); debouncedBuscaCpf(this.value)"></div>
         <div class="col-3"><label>Telefone *</label><input type="text" id="telefone" required oninput="mascaraTelefone(this)"></div>
 
 
@@ -573,34 +573,96 @@ function preencherFormularioAgendamento(dados) {
           carregarBancoDeDados(user, pass);
       } else { mostrarLogin(); erro.style.display = 'block'; erro.innerText = "Usuário ou senha incorretos!"; if(!isAuto) { btn.innerText = "ENTRAR"; btn.disabled = false; } }
   }
+
+<script>
   function carregarBancoDeDados(user, pass) {
       const inputNome = document.getElementById("nome"); inputNome.disabled = true; inputNome.placeholder = "🔄 Carregando lista...";
-      google.script.run.withSuccessHandler(dados => { bancoDeDados = dados; inputNome.disabled = false; inputNome.placeholder = "Digite 3 letras para buscar..."; }).withFailureHandler(err => { console.error("Erro", err); inputNome.placeholder = "Erro ao carregar lista."; }).buscarPacientes(user, pass);
+      google.script.run.withSuccessHandler(dados => { bancoDeDados = dados; inputNome.disabled = false; inputNome.placeholder = "Digite nome ou CPF/CNS para buscar..."; }).withFailureHandler(err => { console.error("Erro", err); inputNome.placeholder = "Erro ao carregar lista."; }).buscarPacientes(user, pass);
   }
   function sair() { localStorage.clear(); location.reload(); }
   document.getElementById("loginPass").addEventListener("keyup", function(event) { if (event.key === "Enter") verificarAcesso(); });
   let timeoutBusca = null;
+  let timeoutBuscaCpf = null;
+  const normalizarDocumento = (v) => String(v || '').replace(/\D/g, '');
+
   function debouncedBusca(valor, tipo) { clearTimeout(timeoutBusca); timeoutBusca = setTimeout(() => { gerenciarBusca(valor, tipo); }, 300); }
+  function debouncedBuscaCpf(valor) { clearTimeout(timeoutBuscaCpf); timeoutBuscaCpf = setTimeout(() => { buscarPorDocumentoNoCpf(valor); }, 300); }
+
+  function buscarPorDocumentoNoCpf(valor) {
+    if (!bancoDeDados || bancoDeDados.length === 0) return;
+    const termoDoc = normalizarDocumento(valor);
+
+    if (termoDoc.length < 3) {
+      pacienteCarregado = false;
+      setAtualizarCadastroDisponivel(false);
+      return;
+    }
+
+    const pacienteEncontrado = bancoDeDados.find(x => normalizarDocumento(x.cpf) === termoDoc);
+    if (pacienteEncontrado) {
+      document.getElementById('nome').value = pacienteEncontrado.nome || "";
+      preencherCampos(pacienteEncontrado, 'P');
+    } else {
+      pacienteCarregado = false;
+      setAtualizarCadastroDisponivel(false);
+    }
+  }
+
   function gerenciarBusca(valor, tipo) {
     if (!bancoDeDados || bancoDeDados.length === 0) return;
     const idDatalist = tipo === 'P' ? 'listaNomes' : (tipo === 'A1' ? 'listaNomesA1' : 'listaNomesA2');
     const datalist = document.getElementById(idDatalist);
-    const pacienteEncontrado = bancoDeDados.find(x => x.nome.toUpperCase() === valor.toUpperCase());
-    if (pacienteEncontrado) preencherCampos(pacienteEncontrado, tipo);
-    if (tipo === 'P' && !pacienteEncontrado) {
+
+    const termo = (valor || '').trim();
+    const termoNome = termo.toUpperCase();
+    const termoDoc = normalizarDocumento(termo);
+
+    const correspondenciasNomeExato = bancoDeDados.filter(x => String(x.nome || '').toUpperCase().trim() === termoNome);
+    const pacientePorDocumento = termoDoc.length > 0
+      ? bancoDeDados.find(x => normalizarDocumento(x.cpf) === termoDoc)
+      : null;
+
+    let pacienteEncontrado = null;
+    if (pacientePorDocumento) {
+      pacienteEncontrado = pacientePorDocumento;
+    } else if (correspondenciasNomeExato.length === 1) {
+      pacienteEncontrado = correspondenciasNomeExato[0];
+    }
+
+    if (pacienteEncontrado) {
+      preencherCampos(pacienteEncontrado, tipo);
+    } else if (tipo === 'P') {
       pacienteCarregado = false;
       setAtualizarCadastroDisponivel(false);
+      if (correspondenciasNomeExato.length > 1 && termoNome.length >= 3) {
+        mostrarStatus('Nome duplicado encontrado. Para evitar preencher o primeiro registro, selecione pelo CPF/CNS.', 'info', 'status');
+      }
     }
-    if (valor.length < 3) { datalist.innerHTML = ''; return; }
-    datalist.innerHTML = ''; 
-    const sugestoes = bancoDeDados.filter(p => p.nome.toUpperCase().includes(valor.toUpperCase())).slice(0, 10); 
+
+    if (termo.length < 3 && termoDoc.length < 3) { datalist.innerHTML = ''; return; }
+    datalist.innerHTML = '';
+
+    const sugestoes = bancoDeDados.filter(p => {
+      const nomeBase = String(p.nome || '').toUpperCase();
+      const docBase = normalizarDocumento(p.cpf);
+      const bateNome = termoNome.length >= 3 && nomeBase.includes(termoNome);
+      const bateDoc = termoDoc.length >= 3 && docBase.includes(termoDoc);
+      return bateNome || bateDoc;
+    }).slice(0, 10);
+
     const fragment = document.createDocumentFragment();
-    sugestoes.forEach(p => { let opt = document.createElement('option'); opt.value = p.nome; fragment.appendChild(opt); });
+    sugestoes.forEach(p => {
+      let opt = document.createElement('option');
+      opt.value = p.nome;
+      opt.label = `${p.nome} — ${p.cpf || 'SEM DOC'}`;
+      fragment.appendChild(opt);
+    });
     datalist.appendChild(fragment);
   }
+
   function preencherCampos(p, tipo) {
     if (tipo === 'P') {
-      document.getElementById('cpf').value = p.cpf || ""; document.getElementById('dtNasc').value = p.nasc || ""; 
+      document.getElementById('cpf').value = p.cpf || ""; document.getElementById('dtNasc').value = p.nasc || "";
       document.getElementById('endereco').value = p.endereco || ""; document.getElementById('bairro').value = p.bairro || "";
       document.getElementById('telefone').value = p.telefone || ""; document.getElementById('idade').value = p.idade || "";
       document.getElementById('cep').value = p.cep || ""; document.getElementById('sexo').value = (p.sexo && p.sexo.substring(0,1).toUpperCase()) || "";
@@ -618,6 +680,7 @@ function preencherFormularioAgendamento(dados) {
       document.getElementById('telA2').value = p.telefone || "";
     }
   }
+</script>
 
   // --- LÓGICA DE VISIBILIDADE DOS ACOMPANHANTES ---
   function toggleAcomp() {
