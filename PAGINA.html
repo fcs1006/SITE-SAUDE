@@ -44,6 +44,8 @@
     button:disabled { background-color: #ccc; cursor: not-allowed; }
     #status, #statusCadastro { margin-top: 15px; font-weight: bold; padding: 10px; border-radius: 4px; text-align: center; display: none; width: 100%; max-width: 300px; }
 
+    #reimpressaoModal.active { display: flex; align-items: flex-start; justify-content: center; padding-top: 500px;}
+
     .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.55); display: none; align-items: flex-start; justify-content: center; z-index: 10001; padding-top: 80px }
     .modal-overlay.active { display: flex; }
     .modal-box { background: #fff; border-radius: 10px; padding: 24px; max-width: 420px; width: 90%; box-shadow: 0 10px 30px rgba(0,0,0,0.2); text-align: center; }
@@ -459,7 +461,8 @@
   <div class="modal-box" style="max-width: 620px;">
     <div id="reimpressaoTitle" class="modal-title" style="color:#1d3557;">Buscar agendamento para reimpressão</div>
     <div id="reimpressaoMessage" class="modal-message">Digite o nome do paciente e escolha o agendamento desejado.</div>
-    <input type="text" id="reimpressaoNome" placeholder="Nome do paciente" oninput="mascaraNome(this)" style="margin-bottom:10px;">
+<input type="text" id="reimpressaoNome" list="listaReimpressaoNomes" placeholder="Nome do paciente" oninput="mascaraNome(this); debouncedBuscaReimpressao(this.value)" style="margin-bottom:10px;">
+    <datalist id="listaReimpressaoNomes"></datalist>
     <button type="button" class="modal-btn" onclick="buscarAgendamentosParaReimpressao()" style="max-width: 220px;">BUSCAR</button>
     <div id="reimpressaoLista" class="selecao-lista" style="margin-top:12px;"></div>
     <div class="modal-actions">
@@ -706,10 +709,44 @@ function preencherFormularioAgendamento(dados) {
   document.getElementById("loginPass").addEventListener("keyup", function(event) { if (event.key === "Enter") verificarAcesso(); });
   let timeoutBusca = null;
   let timeoutBuscaCpf = null;
+  let timeoutBuscaReimpressao = null;
   const normalizarDocumento = (v) => String(v || '').replace(/\D/g, '');
 
   function debouncedBusca(valor, tipo) { clearTimeout(timeoutBusca); timeoutBusca = setTimeout(() => { gerenciarBusca(valor, tipo); }, 300); }
   function debouncedBuscaCpf(valor) { clearTimeout(timeoutBuscaCpf); timeoutBuscaCpf = setTimeout(() => { buscarPorDocumentoNoCpf(valor); }, 300); }
+
+function debouncedBuscaReimpressao(valor) { clearTimeout(timeoutBuscaReimpressao); timeoutBuscaReimpressao = setTimeout(() => { sugerirNomesReimpressao(valor); }, 250); }
+
+  function sugerirNomesReimpressao(valor) {
+    const datalist = document.getElementById('listaReimpressaoNomes');
+    if (!datalist || !bancoDeDados || bancoDeDados.length === 0) return;
+
+    const termo = String(valor || "").trim().toUpperCase();
+    if (termo.length < 3) { datalist.innerHTML = ""; return; }
+
+    const nomesUnicos = new Map();
+    bancoDeDados.forEach((p) => {
+      const nome = String(p.nome || "").trim();
+      if (!nome) return;
+      if (nome.toUpperCase().includes(termo) && !nomesUnicos.has(nome)) {
+        nomesUnicos.set(nome, p.cpf || "");
+      }
+    });
+
+    datalist.innerHTML = "";
+    const frag = document.createDocumentFragment();
+    Array.from(nomesUnicos.entries()).slice(0, 10).forEach(([nome, cpf]) => {
+      const opt = document.createElement('option');
+      opt.value = nome;
+      opt.label = `${nome} — ${cpf || "SEM DOC"}`;
+      frag.appendChild(opt);
+    });
+    datalist.appendChild(frag);
+
+    if (nomesUnicos.has(String(valor || "").trim())) {
+      buscarAgendamentosParaReimpressao();
+    }
+  }
 
   function buscarPorDocumentoNoCpf(valor) {
     if (!bancoDeDados || bancoDeDados.length === 0) return;
