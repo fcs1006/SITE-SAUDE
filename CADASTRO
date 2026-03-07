@@ -256,6 +256,75 @@ function buscarPacientes(usuario, senha) {
   }));
 }
 
+function buscarAgendamentosPorNome(nome, usuario, senha) {
+  exigirLogin(usuario, senha);
+
+  const nomeBusca = String(nome || "").toUpperCase().trim();
+  if (nomeBusca.length < 3) return [];
+
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const abaRel = ss.getSheetByName("RELATORIO");
+  const abaBase = ss.getSheetByName("BASE");
+  if (!abaRel || abaRel.getLastRow() < 7) return [];
+
+  const normalizarDoc = (v) => String(v || "").replace(/\D/g, "");
+  const paraIso = (d) => {
+    const p = String(d || "").split("/");
+    if (p.length !== 3) return "";
+    const [dia, mes, ano] = p;
+    return `${ano}-${mes.padStart(2, "0")}-${dia.padStart(2, "0")}`;
+  };
+
+  const mapaBasePorCpf = {};
+  if (abaBase && abaBase.getLastRow() > 1) {
+    const base = abaBase.getRange(2, 2, abaBase.getLastRow() - 1, 10).getDisplayValues();
+    base.forEach(r => {
+      const cpf = normalizarDoc(r[1]);
+      if (cpf) {
+        mapaBasePorCpf[cpf] = {
+          nome: r[0] || "", cpf: r[1] || "", nasc: r[2] || "", idade: r[3] || "",
+          endereco: r[4] || "", bairro: r[6] || "", cep: r[7] || "", telefone: r[8] || "", sexo: r[9] || ""
+        };
+      }
+    });
+  }
+
+  const dadosRel = abaRel.getRange(7, 1, abaRel.getLastRow() - 6, 17).getDisplayValues();
+  const filtrados = dadosRel
+    .filter(r => String(r[2] || "").toUpperCase().trim().includes(nomeBusca))
+    .map(r => {
+      const cpfNorm = normalizarDoc(r[3]);
+      const base = mapaBasePorCpf[cpfNorm] || {};
+      return {
+        data: paraIso(r[1]),
+        hora: r[11] || "",
+        nome: r[2] || "",
+        cpf: r[3] || "",
+        dtNasc: base.nasc || "",
+        sexo: base.sexo || "",
+        idade: base.idade || "",
+        cep: base.cep || "",
+        endereco: base.endereco || "",
+        bairro: base.bairro || "",
+        telefone: base.telefone || "",
+        atualizarCadastro: "",
+        temAcomp: r[4] || "",
+        obs: r[12] || "",
+        nomeA1: r[5] || "", cpfA1: r[6] || "", nascA1: "", endA1: "", bairA1: "", sexoA1: "", telA1: "",
+        nomeA2: r[7] || "", cpfA2: r[8] || "", nascA2: "", endA2: "", bairA2: "", obsA2: r[13] || "", sexoA2: "", telA2: "",
+        destino: r[10] || "", local: r[16] || "", motivo: r[9] || "", agendadoPor: r[15] || "",
+        dataBr: r[1] || ""
+      };
+    })
+    .sort((a, b) => {
+      if (a.data === b.data) return String(b.hora || "").localeCompare(String(a.hora || ""));
+      return String(b.data || "").localeCompare(String(a.data || ""));
+    })
+    .slice(0, 20);
+
+  return filtrados;
+}
+
 // --- SALVAR NOVO PACIENTE ---
 function salvarNovoPaciente(dados) {
   exigirLogin(dados.usuario, dados.senha);

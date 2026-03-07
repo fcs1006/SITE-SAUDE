@@ -401,7 +401,7 @@
 
       <div class="container-botao">
         <button type="submit" id="btnEnviar">GRAVAR NO SISTEMA</button>
-        <button type="button" id="btnReimprimir" onclick="reimprimirUltimoAgendamento()" disabled>REIMPRIMIR ÚLTIMO AGENDAMENTO</button>
+        <button type="button" id="btnReimprimir" onclick="abrirModalBuscaReimpressao()">REIMPRIMIR</button>
         <div id="status"></div>
       </div>
     </form>
@@ -441,6 +441,8 @@
   </div>
 </div>
 
+
+
 <div id="selecaoPacienteModal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="selecaoPacienteTitle" aria-describedby="selecaoPacienteMessage">
   <div class="modal-box" style="max-width: 560px;">
     <div id="selecaoPacienteTitle" class="modal-title" style="color:#1d3557;">Selecione o paciente correto</div>
@@ -448,6 +450,20 @@
     <div id="selecaoPacienteLista" class="selecao-lista"></div>
     <div class="modal-actions">
       <button type="button" class="modal-btn" onclick="fecharModalSelecaoPaciente()">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+
+<div id="reimpressaoModal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="reimpressaoTitle" aria-describedby="reimpressaoMessage">
+  <div class="modal-box" style="max-width: 620px;">
+    <div id="reimpressaoTitle" class="modal-title" style="color:#1d3557;">Buscar agendamento para reimpressão</div>
+    <div id="reimpressaoMessage" class="modal-message">Digite o nome do paciente e escolha o agendamento desejado.</div>
+    <input type="text" id="reimpressaoNome" placeholder="Nome do paciente" oninput="mascaraNome(this)" style="margin-bottom:10px;">
+    <button type="button" class="modal-btn" onclick="buscarAgendamentosParaReimpressao()" style="max-width: 220px;">BUSCAR</button>
+    <div id="reimpressaoLista" class="selecao-lista" style="margin-top:12px;"></div>
+    <div class="modal-actions">
+      <button type="button" class="modal-btn" onclick="fecharModalBuscaReimpressao()">Fechar</button>
     </div>
   </div>
 </div>
@@ -577,14 +593,81 @@ function preencherFormularioAgendamento(dados) {
       setVal('agendadoPor', dados.agendadoPor);
   }
 
-  function reimprimirUltimoAgendamento() {
-      if (!ultimoAgendamento) {
-          mostrarStatus("Nenhum agendamento disponível para reimprimir.", "erro", "status");
+  function abrirModalBuscaReimpressao() {
+      const modal = document.getElementById('reimpressaoModal');
+      const campoNome = document.getElementById('reimpressaoNome');
+      const lista = document.getElementById('reimpressaoLista');
+      if (!modal || !campoNome || !lista) return;
+      const nomeAtual = document.getElementById('nome') ? document.getElementById('nome').value : '';
+      campoNome.value = nomeAtual || '';
+      lista.innerHTML = '';
+      modal.classList.add('active');
+      if (campoNome.value.trim().length >= 3) buscarAgendamentosParaReimpressao();
+  }
+
+  function fecharModalBuscaReimpressao() {
+      const modal = document.getElementById('reimpressaoModal');
+      const lista = document.getElementById('reimpressaoLista');
+      if (modal) modal.classList.remove('active');
+      if (lista) lista.innerHTML = '';
+  }
+
+  function buscarAgendamentosParaReimpressao() {
+      const campoBusca = document.getElementById('reimpressaoNome');
+      const nome = campoBusca ? campoBusca.value.trim() : '';
+      const lista = document.getElementById('reimpressaoLista');
+      if (!lista) return;
+
+      if (nome.length < 3) {
+          lista.innerHTML = '<small>Digite pelo menos 3 letras para buscar.</small>';
           return;
       }
-      preencherFormularioAgendamento(ultimoAgendamento);
-      scrollToTop('auto');
-      setTimeout(() => window.print(), 150);
+      const usuario = localStorage.getItem('sms_user');
+      const senha = localStorage.getItem('sms_pass');
+      lista.innerHTML = '<small>Buscando agendamentos...</small>';
+
+      google.script.run
+        .withSuccessHandler((agendamentos) => {
+          const itens = agendamentos || [];
+          if (itens.length === 0) {
+            lista.innerHTML = '<small>Nenhum agendamento encontrado para esse nome.</small>';
+            return;
+          }
+
+          lista.innerHTML = '';
+          itens.forEach((a) => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'selecao-item';
+            btn.innerHTML = `<strong>${a.nome || '-'}</strong><small>Data: ${a.dataBr || '-'} • Hora: ${a.hora || '-'}</small><small>Destino: ${a.destino || '-'} • Motivo: ${a.motivo || '-'}</small>`;
+            btn.onclick = () => {
+              preencherFormularioAgendamento(a);
+              ultimoAgendamento = { ...a };
+              document.getElementById('btnReimprimir').disabled = false;
+              fecharModalBuscaReimpressao();
+              scrollToTop('auto');
+
+              const finalizarReimpressao = () => {
+                document.getElementById('formViagem').reset();
+                pacienteCarregado = false;
+                setAtualizarCadastroDisponivel(false);
+                toggleAcomp();
+                const status = document.getElementById('status');
+                if (status) status.style.display = 'none';
+              };
+
+              window.addEventListener('afterprint', finalizarReimpressao, { once: true });
+
+              setTimeout(() => window.print(), 150);
+            };
+            lista.appendChild(btn);
+          });
+        })
+        .withFailureHandler((err) => {
+          const msg = err && err.message ? err.message : String(err);
+          lista.innerHTML = `<small>Erro ao buscar: ${msg}</small>`;
+        })
+        .buscarAgendamentosPorNome(nome, usuario, senha);
   }
 
   function abrirAba(nomeAba) {
