@@ -299,7 +299,7 @@
               <input type="text" id="nomeA1" list="listaNomesA1" oninput="mascaraNome(this); debouncedBusca(this.value, 'A1')" placeholder="Buscar..." autocomplete="off">
               <datalist id="listaNomesA1"></datalist>
               </div>
-              <div class="col-4"><label>CPF/CNS *</label><input type="text" id="cpfA1" oninput="mascaraCpfCns(this)"></div>
+ <div class="col-4"><label>CPF/CNS *</label><input type="text" id="cpfA1" oninput="mascaraCpfCns(this); debouncedBuscaCpfAcompanhante(this.value, 'A1')"></div>
               <div class="col-4"><label>Telefone *</label><input type="text" id="telA1" oninput="mascaraTelefone(this)"></div>
 
               
@@ -321,7 +321,7 @@
               <input type="text" id="nomeA2" list="listaNomesA2" oninput="mascaraNome(this); debouncedBusca(this.value, 'A2')" placeholder="Buscar..." autocomplete="off">
                  <datalist id="listaNomesA2"></datalist>
               </div>
-              <div class="col-4"><label>CPF/CNS *</label><input type="text" id="cpfA2" oninput="mascaraCpfCns(this)"></div>
+              <div class="col-4"><label>CPF/CNS *</label><input type="text" id="cpfA2" oninput="mascaraCpfCns(this); debouncedBuscaCpfAcompanhante(this.value, 'A2')"></div>
               <div class="col-4"><label>Telefone *</label><input type="text" id="telA2" oninput="mascaraTelefone(this)"></div>
               
               <div class="col-4"><label>Data Nasc. *</label><input type="text" id="nascA2" oninput="mascaraData(this)"></div>
@@ -709,13 +709,16 @@ function preencherFormularioAgendamento(dados) {
   document.getElementById("loginPass").addEventListener("keyup", function(event) { if (event.key === "Enter") verificarAcesso(); });
   let timeoutBusca = null;
   let timeoutBuscaCpf = null;
+  let timeoutBuscaCpfAcompanhante = null;
   let timeoutBuscaReimpressao = null;
   const normalizarDocumento = (v) => String(v || '').replace(/\D/g, '');
 
   function debouncedBusca(valor, tipo) { clearTimeout(timeoutBusca); timeoutBusca = setTimeout(() => { gerenciarBusca(valor, tipo); }, 300); }
   function debouncedBuscaCpf(valor) { clearTimeout(timeoutBuscaCpf); timeoutBuscaCpf = setTimeout(() => { buscarPorDocumentoNoCpf(valor); }, 300); }
 
-function debouncedBuscaReimpressao(valor) { clearTimeout(timeoutBuscaReimpressao); timeoutBuscaReimpressao = setTimeout(() => { sugerirNomesReimpressao(valor); }, 250); }
+  function debouncedBuscaCpfAcompanhante(valor, tipo) { clearTimeout(timeoutBuscaCpfAcompanhante); timeoutBuscaCpfAcompanhante = setTimeout(() => { buscarPorDocumentoNoCpfAcompanhante(valor, tipo); }, 300); }
+
+  function debouncedBuscaReimpressao(valor) { clearTimeout(timeoutBuscaReimpressao); timeoutBuscaReimpressao = setTimeout(() => { sugerirNomesReimpressao(valor); }, 250); }
 
   function sugerirNomesReimpressao(valor) {
     const datalist = document.getElementById('listaReimpressaoNomes');
@@ -767,6 +770,25 @@ function debouncedBuscaReimpressao(valor) { clearTimeout(timeoutBuscaReimpressao
       setAtualizarCadastroDisponivel(false);
     }
   }
+
+function buscarPorDocumentoNoCpfAcompanhante(valor, tipo) {
+    if (!bancoDeDados || bancoDeDados.length === 0) return;
+    const termoDoc = normalizarDocumento(valor);
+
+    if (termoDoc.length < 3) return;
+
+    const acompanhante = bancoDeDados.find(x => normalizarDocumento(x.cpf) === termoDoc);
+    if (!acompanhante) return;
+
+    if (tipo === 'A1') {
+      document.getElementById('nomeA1').value = acompanhante.nome || "";
+      preencherCampos(acompanhante, 'A1');
+    } else if (tipo === 'A2') {
+      document.getElementById('nomeA2').value = acompanhante.nome || "";
+      preencherCampos(acompanhante, 'A2');
+    }
+  }
+
 
   function gerenciarBusca(valor, tipo) {
     if (!bancoDeDados || bancoDeDados.length === 0) return;
