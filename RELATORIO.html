@@ -276,7 +276,8 @@
       <option value="/11/">Novembro</option>
       <option value="/12/">Dezembro</option>
     </select>
-    <input type="date" id="filtroData" onchange="filtrarData()" style="padding:7px; border-radius:4px; border:1px solid #ccc;">
+<input type="date" id="filtroDataInicio" onchange="filtrarData()" title="Data inicial" style="padding:7px; border-radius:4px; border:1px solid #ccc;">
+    <input type="date" id="filtroDataFim" onchange="filtrarData()" title="Data final" style="padding:7px; border-radius:4px; border:1px solid #ccc;">
     <button class="btn btn-yellow" onclick="filtrarHoje()">Hoje</button>
     <button class="btn btn-delete" onclick="limparFiltros()">Limpar</button>
   </div>
@@ -657,26 +658,39 @@ function verificarBloqueio(origem) {
   }
 
   function aplicarFiltroDataDestino() {
-    const dataInput = document.getElementById("filtroData").value;
+const dataInicio = document.getElementById("filtroDataInicio").value;
+    const dataFim = document.getElementById("filtroDataFim").value;
     const destinosSelecionados = obterDestinosSelecionados();
     let filtrados = todosDados;
 
-    if (dataInput) {
-      const p = dataInput.split("-");
-      const dataFormatada = `${p[2]}/${p[1]}/${p[0]}`;
-      filtrados = filtrados.filter(d => d.data === dataFormatada);
+    const paraDataObj = (br) => {
+      const p = String(br || "").split("/");
+      if (p.length !== 3) return null;
+      return new Date(Number(p[2]), Number(p[1]) - 1, Number(p[0]));
+    };
+
+    if (dataInicio || dataFim) {
+      const dtIni = dataInicio ? new Date(`${dataInicio}T00:00:00`) : null;
+      const dtFim = dataFim ? new Date(`${dataFim}T23:59:59`) : null;
+      filtrados = filtrados.filter(d => {
+        const dt = paraDataObj(d.data);
+        if (!dt) return false;
+        if (dtIni && dt < dtIni) return false;
+        if (dtFim && dt > dtFim) return false;
+        return true;
+      });
     }
-     if (destinosSelecionados.length) {
+ if (destinosSelecionados.length) {
       filtrados = filtrados.filter(d => destinosSelecionados.includes(d.destino));
     }
 
-    if (dataInput && destinosSelecionados.length) filtroAtivo = 'DATA_DESTINO';
-    else if (dataInput) filtroAtivo = 'DATA';
+   const temPeriodo = !!(dataInicio || dataFim);
+    if (temPeriodo && destinosSelecionados.length) filtroAtivo = 'DATA_DESTINO';
+    else if (temPeriodo) filtroAtivo = 'DATA';
     else if (destinosSelecionados.length) filtroAtivo = 'DESTINO';
     else filtroAtivo = null;
 
     atualizarFiltroDestinoInfo(destinosSelecionados.length);
-
     renderizarTabela(filtrados);
   }
   function filtrarTabela() {
@@ -693,9 +707,14 @@ function verificarBloqueio(origem) {
      filtroAtivo = 'MES'; renderizarTabela(todosDados.filter(d => d.data.includes(select.value)));
   }
   function filtrarData() {
-     const input = document.getElementById("filtroData");
-     if (verificarBloqueio('DATA')) { input.value = ""; return; }
-    aplicarFiltroDataDestino();
+   const inputIni = document.getElementById("filtroDataInicio");
+     const inputFim = document.getElementById("filtroDataFim");
+     if (verificarBloqueio('DATA')) {
+       if (inputIni) inputIni.value = "";
+       if (inputFim) inputFim.value = "";
+       return;
+     }
+     aplicarFiltroDataDestino();
   }
   function filtrarDestino() {
   const box = document.getElementById("filtroDestinoBox");
@@ -709,11 +728,16 @@ function verificarBloqueio(origem) {
   function filtrarHoje() {
      if (verificarBloqueio('HOJE')) return; filtroAtivo = 'HOJE';
      const hoje = new Date();
-     const hStr = `${String(hoje.getDate()).padStart(2,'0')}/${String(hoje.getMonth()+1).padStart(2,'0')}/${hoje.getFullYear()}`;
+ const yyyy = hoje.getFullYear();
+     const mm = String(hoje.getMonth()+1).padStart(2,'0');
+     const dd = String(hoje.getDate()).padStart(2,'0');
+     const hStr = `${dd}/${mm}/${yyyy}`;
+     document.getElementById("filtroDataInicio").value = `${yyyy}-${mm}-${dd}`;
+     document.getElementById("filtroDataFim").value = `${yyyy}-${mm}-${dd}`;
      renderizarTabela(todosDados.filter(d => d.data === hStr));
      document.getElementById("inputBuscar").placeholder = "Filtro: HOJE ativado...";
   }
-function limparFiltros() { filtroAtivo = null; document.getElementById("inputBuscar").value = ""; document.querySelectorAll("#filtroDestinoBox input[type='checkbox']").forEach(input => { input.checked = false; }); atualizarFiltroDestinoInfo(0); document.getElementById("filtroMes").value = ""; document.getElementById("filtroData").value = ""; renderizarTabela(todosDados); }
+function limparFiltros() { filtroAtivo = null; document.getElementById("inputBuscar").value = ""; document.querySelectorAll("#filtroDestinoBox input[type='checkbox']").forEach(input => { input.checked = false; }); atualizarFiltroDestinoInfo(0); document.getElementById("filtroMes").value = ""; document.getElementById("filtroDataInicio").value = ""; document.getElementById("filtroDataFim").value = ""; renderizarTabela(todosDados); }
 
   function atualizarFiltroDestino(dados) {
       const box = document.getElementById("filtroDestinoBox");
