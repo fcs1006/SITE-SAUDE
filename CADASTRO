@@ -119,7 +119,7 @@ function buscarDadosRelatorioJesus(mesReferencia, usuario, senha, destinosSeleci
     throw new Error("Formato inválido. Use MM/AAAA.");
   }
 
-  const ss = SpreadsheetApp.openById("1o_AGwq9rfr-2R5Z_Ji53ple87sdcH8jnmtdZaluk4KY");
+  const ss = SpreadsheetApp.openById("12d04IePMmvgixxG3LHkDBsOBQB7aGR7qbIhKMucfDio");
   const relatorio = ss.getSheetByName("RELATORIO");
   if (!relatorio) throw new Error("Aba RELATORIO não encontrada.");
 
@@ -184,7 +184,7 @@ function buscarDadosRelatorioTFD(dataReferencia, usuario, senha) {
     throw new Error("Formato inválido. Use DD/MM/AAAA.");
   }
 
-  const ss = SpreadsheetApp.openById("1o_AGwq9rfr-2R5Z_Ji53ple87sdcH8jnmtdZaluk4KY");
+  const ss = SpreadsheetApp.openById("12d04IePMmvgixxG3LHkDBsOBQB7aGR7qbIhKMucfDio");
   const abaRel = ss.getSheetByName("RELATORIO");
   const abaBase = ss.getSheetByName("BASE");
 
@@ -294,7 +294,11 @@ function buscarAgendamentosPorNome(nome, usuario, senha) {
     .filter(r => String(r[2] || "").toUpperCase().trim().includes(nomeBusca))
     .map(r => {
       const cpfNorm = normalizarDoc(r[3]);
+      const cpfA1Norm = normalizarDoc(r[6]);
+      const cpfA2Norm = normalizarDoc(r[8]);
       const base = mapaBasePorCpf[cpfNorm] || {};
+      const baseA1 = mapaBasePorCpf[cpfA1Norm] || {};
+      const baseA2 = mapaBasePorCpf[cpfA2Norm] || {};
       return {
         data: paraIso(r[1]),
         hora: r[11] || "",
@@ -310,8 +314,8 @@ function buscarAgendamentosPorNome(nome, usuario, senha) {
         atualizarCadastro: "",
         temAcomp: r[4] || "",
         obs: r[12] || "",
-        nomeA1: r[5] || "", cpfA1: r[6] || "", nascA1: "", endA1: "", bairA1: "", sexoA1: "", telA1: "",
-        nomeA2: r[7] || "", cpfA2: r[8] || "", nascA2: "", endA2: "", bairA2: "", obsA2: r[13] || "", sexoA2: "", telA2: "",
+        nomeA1: r[5] || "", cpfA1: r[6] || "", nascA1: baseA1.nasc || "", endA1: baseA1.endereco || "", bairA1: baseA1.bairro || "", sexoA1: baseA1.sexo || "", telA1: baseA1.telefone || "",
+        nomeA2: r[7] || "", cpfA2: r[8] || "", nascA2: baseA2.nasc || "", endA2: baseA2.endereco || "", bairA2: baseA2.bairro || "", obsA2: r[13] || "", sexoA2: baseA2.sexo || "", telA2: baseA2.telefone || "",
         destino: r[10] || "", local: r[16] || "", motivo: r[9] || "", agendadoPor: r[15] || "",
         dataBr: r[1] || ""
       };
@@ -963,7 +967,7 @@ function buscarResumoMensal(mesAno, usuario, senha) {
     throw new Error("Formato inválido. Use MM/YYYY");
   }
 
-  const ss = SpreadsheetApp.openById("1o_AGwq9rfr-2R5Z_Ji53ple87sdcH8jnmtdZaluk4KY");
+  const ss = SpreadsheetApp.openById("12d04IePMmvgixxG3LHkDBsOBQB7aGR7qbIhKMucfDio");
   const aba = ss.getSheetByName("RELATORIO");
   if (!aba) throw new Error("Aba RELATORIO não encontrada");
 
