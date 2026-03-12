@@ -1,0 +1,183 @@
+// ======================================================
+// SCRIPT BPA SUS - CORREÇÃO DEFINITIVA (DATAS + BOTÃO)
+// 1. DATA: Converte DD/MM/AAAA para AAAAMMDD (Obrigatório).
+// 2. LIMPEZA: Remove 'Enters' que quebram a linha.
+// 3. DOWNLOAD: Botão manual para garantir que baixe.
+// ======================================================
+
+function gerarTxtBPA() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName("BPA");
+  
+  if (!sheet) { Browser.msgBox("ERRO: Aba 'BPA' não encontrada."); return; }
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) { Browser.msgBox("Aba 'BPA' vazia."); return; }
+
+  const competenciaArquivo = sheet.getRange(2, 3).getValue(); 
+  const nomeArquivo = `BPA_${competenciaArquivo}.txt`;
+  
+  // Pega dados brutos
+  const dadosBrutos = sheet.getRange(2, 1, lastRow - 1, 34).getValues();
+
+  // Filtra linhas válidas
+  const dados = dadosBrutos.filter(linha => linha[10] && linha[19]);
+
+  if (dados.length === 0) { Browser.msgBox("Sem dados válidos."); return; }
+
+  // --- CÁLCULOS DO CABEÇALHO ---
+  const totalLinhas = dados.length;
+  let maxFolha = Math.ceil(totalLinhas / 99) || 1; 
+
+  let somaProcedimentos = 0;
+  let somaQuantidades = 0;
+
+  for (let r = 0; r < dados.length; r++) {
+    somaProcedimentos += (parseInt(dados[r][8]) || 0);
+    somaQuantidades += (parseInt(dados[r][14]) || 0);
+  }
+  let campoControle = ((somaProcedimentos + somaQuantidades) % 1111) + 1111;
+
+  let conteudoTxt = "";
+
+  // === RECORD 01 (CABEÇALHO) ===
+  conteudoTxt += "01#BPA#" + 
+                 padNum(competenciaArquivo, 6) + 
+                 padNum(totalLinhas, 6) + 
+                 padNum(maxFolha, 6) + 
+                 padNum(campoControle, 4) + 
+                 padTxt("", 36) + 
+                 "00000000000000" + 
+                 padTxt("", 41) + 
+                 "D04.10\r\n";
+
+  // === RECORD 03 (INDIVIDUALIZADO) ===
+  let folhaAtual = 1;
+  let seqFolha = 0;
+
+  for (let i = 0; i < dados.length; i++) {
+    let linha = dados[i];
+    
+    // LIMPEZA CRÍTICA: Remove quebras de linha (Enter) dentro das células
+    linha = linha.map(item => String(item).replace(/(\r\n|\n|\r)/gm, " "));
+
+    seqFolha++;
+    if (seqFolha > 99) { seqFolha = 1; folhaAtual++; }
+
+    // MONTAGEM DA LINHA
+    let txt = "03";                                   // 01- TIPO 03
+    txt += padNum(linha[1], 7);                     // 02- CNES
+    txt += padNum(linha[2], 6);                     // 03- COMPETENCIA
+    txt += padNum(linha[3], 15);                    // 04- CNS PROF
+    txt += padNum(linha[4], 6);                     // 05- CBO
+    
+    // --- CORREÇÃO DATA ATENDIMENTO (DDMMAAAA -> AAAAMMDD) ---
+    txt += formatarDataYYYYMMDD(linha[5]);          
+    
+    txt += padNum(folhaAtual, 3);                   // 07- FOLHA
+    txt += padNum(seqFolha, 2);                     // 08- SEQUENCIA
+    txt += padNum(linha[8], 10);                    // 09- PROCEDIMENTO
+    txt += padNumEspacos(linha[9], 15);             // 10- CNS PAC
+    txt += padTxt(linha[10], 1);                    // 11- SEXO
+    txt += padNum(linha[11], 6);                    // 12- IBGE
+    txt += padTxt(linha[12], 4);                    // 13- CID
+    txt += padNum(linha[13], 3);                    // 14- IDADE
+    txt += padNum(linha[14], 6);                    // 15- QTD
+    txt += padNum(linha[15], 2);                    // 16- CARATER
+    
+    // 17- AUTORIZACAO
+    let aut = linha[16];
+    if (!aut || aut == "0" || String(aut).trim() == "") txt += "             ";
+    else txt += padNum(aut, 13);
+
+    txt += padTxt(linha[17], 3);                    // 18- ORIGEM
+    txt += padTxt(linha[18], 30);                   // 19- NOME
+    
+    // --- CORREÇÃO DATA NASCIMENTO (DDMMAAAA -> AAAAMMDD) ---
+    txt += formatarDataYYYYMMDD(linha[19]);         
+    
+    txt += padNum(linha[20], 2);                    // 21- RACA
+    txt += "    ";                                  // 22- ETNIA
+    txt += "010";                                   // 23- NACIONALIDADE
+    
+    // 24- SERVIÇO (32 Espaços - Conforme seu arquivo válido)
+    txt += "                                ";      
+
+    txt += padNum(linha[23], 8);                    // 25- CEP
+    txt += padNum(linha[24], 3);                    // 26- COD LOGR
+    txt += padTxt(linha[25], 30);                   // 27- ENDERECO
+    txt += padTxt(linha[26], 10);                   // 28- COMPLEMENTO
+    txt += padTxt(linha[27], 5);                    // 29- NUMERO
+    txt += padTxt(linha[28], 30);                   // 30- BAIRRO
+    txt += padNum(linha[29], 11);                   // 31- TELEFONE
+    txt += padTxt(linha[30], 40);                   // 32- EMAIL
+    txt += padNumEspacos(linha[31], 10);            // 33- INE
+    txt += padNumEspacos(linha[32], 11);            // 34- CPF
+    txt += padTxt(linha[33], 1);                    // 35- CATEGORIA
+
+    conteudoTxt += txt + "\r\n";
+  }
+
+  downloadFile(nomeArquivo, conteudoTxt);
+}
+
+// ================= FUNÇÃO DE DATA (CORREÇÃO OBRIGATÓRIA) =================
+function formatarDataYYYYMMDD(data) {
+  // Se for Data do Google Sheets (Objeto Date)
+  if (Object.prototype.toString.call(data) === '[object Date]') {
+    var yyyy = data.getFullYear();
+    var mm = ('0' + (data.getMonth() + 1)).slice(-2);
+    var dd = ('0' + data.getDate()).slice(-2);
+    return yyyy + mm + dd;
+  }
+  // Se for texto (ex: 25/12/2025), inverte
+  var s = String(data).replace(/[^0-9]/g, "");
+  if (s.length === 8) {
+    // Assume DD MM AAAA
+    var dia = s.substring(0, 2);
+    var mes = s.substring(2, 4);
+    var ano = s.substring(4, 8);
+    // Validação simples: se o primeiro par for > 31, já deve ser ano
+    if (parseInt(dia) > 31) return s; 
+    return ano + mes + dia; 
+  }
+  return padNum(data, 8); // Retorno padrão se falhar
+}
+
+// ================= FUNÇÃO DE DOWNLOAD MANUAL =================
+function downloadFile(filename, content) {
+  var html = HtmlService.createHtmlOutput(
+    '<div style="text-align: center; font-family: sans-serif; padding: 20px;">' +
+    '<p style="font-size: 16px;">Arquivo <strong>' + filename + '</strong> gerado!</p>' +
+    '<a id="btn" href="#" style="background-color: #4CAF50; color: white; padding: 15px 32px; ' +
+    'text-align: center; text-decoration: none; display: inline-block; font-size: 16px; ' +
+    'border-radius: 4px; font-weight: bold;">CLIQUE AQUI PARA BAIXAR</a>' +
+    '<br><br><small>O download deve iniciar ao clicar.</small>' +
+    '<script>' +
+    'var content = ' + JSON.stringify(content) + ';' +
+    'var filename = "' + filename + '";' +
+    'var blob = new Blob([content], {type: "text/plain;charset=utf-8"});' +
+    'var url = window.URL.createObjectURL(blob);' +
+    'document.getElementById("btn").href = url;' +
+    'document.getElementById("btn").download = filename;' +
+    '</script>' +
+    '</div>'
+  ).setWidth(400).setHeight(200);
+  
+  SpreadsheetApp.getUi().showModalDialog(html, "Download Pronto");
+}
+
+function padNum(v, t) {
+  let s = String(v).replace(/[^0-9]/g, "");
+  return s.padStart(t, "0").substring(s.length > t ? s.length - t : 0);
+}
+
+function padNumEspacos(v, t) {
+  let s = String(v).replace(/[^0-9]/g, "");
+  if (s === "") return " ".repeat(t);
+  return s.padStart(t, "0").substring(0, t);
+}
+
+function padTxt(v, t) {
+  let s = String(v).toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^A-Z0-9 ]/g, " ");
+  return s.padEnd(t, " ").substring(0, t);
+}
