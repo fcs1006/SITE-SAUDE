@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ferramentas BPA</title>
+  <style>
+    :root {
+      --primary: #0056b3;
+      --secondary: #6f42c1;
+      --success: #28a745;
+      --danger: #dc3545;
+      --text: #333;
+    }
+    body {
+      font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      background: #f4f7f6;
+      margin: 0;
+      padding: 20px;
+      color: var(--text);
+    }
+    .card {
+      max-width: 720px;
+      margin: 0 auto;
+      background: #fff;
+      border-radius: 10px;
+      box-shadow: 0 4px 20px rgba(0,0,0,.10);
+      padding: 24px;
+    }
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      border-bottom: 2px solid #eee;
+      padding-bottom: 12px;
+      margin-bottom: 20px;
+    }
+    .header img { height: 64px; }
+    .header-text {
+      color: var(--primary);
+      font-weight: 700;
+      font-size: 13px;
+      line-height: 1.3;
+      text-transform: uppercase;
+    }
+    h2 { margin: 0 0 14px; color: var(--primary); }
+    p.desc { margin-top: 0; color: #666; }
+.competencia-box {
+      max-width: 380px;
+      margin: 8px auto 0;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .competencia-box label {
+      font-weight: 700;
+      color: #444;
+      font-size: 13px;
+    }
+    .competencia-box input {
+      border: 1px solid #cfd4da;
+      border-radius: 8px;
+      padding: 10px 12px;
+      font-size: 15px;
+      text-align: center;
+      font-weight: 700;
+      letter-spacing: 1px;
+    }
+    .actions {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      max-width: 380px;
+      margin: 20px auto 10px;
+    }
+    button {
+      border: none;
+      border-radius: 8px;
+      color: #fff;
+      font-size: 16px;
+      font-weight: 700;
+      padding: 14px;
+      cursor: pointer;
+    }
+    button:disabled { opacity: .7; cursor: not-allowed; }
+    #btnConsolidar { background: var(--primary); }
+    #btnGerar { background: var(--secondary); }
+    #status {
+      display: none;
+      text-align: center;
+      padding: 10px;
+      border-radius: 6px;
+      margin: 12px auto 0;
+      max-width: 420px;
+      font-weight: 700;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="header">
+      <img src="https://lh3.googleusercontent.com/u/0/d/1uRm9gJZ7sShqkZJSu9w7R7LgQ6PgtPnu" alt="Logo">
+      <div class="header-text">
+        PREFEITURA MUNICIPAL DE CONCEIÇÃO DO TOCANTINS<br>
+        SECRETARIA MUNICIPAL DE SAÚDE<br>
+        FUNDO MUNICIPAL DE SAÚDE
+      </div>
+    </div>
+
+    <h2>Ferramentas BPA</h2>
+    <p class="desc">Use os botões abaixo para consolidar os atendimentos e gerar o arquivo TXT do BPA.</p>
+
+    <div class="competencia-box">
+      <label for="competencia">Competência (MM/AAAA)</label>
+      <input id="competencia" type="text" placeholder="10/2025" maxlength="7" oninput="mascaraCompetencia(this)">
+    </div>
+
+    <div class="actions">
+      <button id="btnConsolidar" type="button" onclick="executarConsolidacao()">CONSOLIDAR BPA</button>
+      <button id="btnGerar" type="button" onclick="executarGeracao()">GERAR ARQUIVO BPA (.TXT)</button>
+    </div>
+
+    <div id="status"></div>
+  </div>
+
+<script>
+function mostrarStatus(msg, tipo) {
+  const s = document.getElementById('status');
+  s.textContent = msg;
+  s.style.display = 'block';
+
+  if (tipo === 'success') {
+    s.style.background = '#d4edda';
+    s.style.color = '#155724';
+  } else if (tipo === 'error') {
+    s.style.background = '#f8d7da';
+    s.style.color = '#721c24';
+  } else {
+    s.style.background = '#d1ecf1';
+    s.style.color = '#0c5460';
+  }
+}
+
+function travarBotoes(travar) {
+  document.getElementById('btnConsolidar').disabled = travar;
+  document.getElementById('btnGerar').disabled = travar;
+}
+
+function mascaraCompetencia(input) {
+  let v = String(input.value || '').replace(/\D/g, '').slice(0, 6);
+  if (v.length >= 3) {
+    v = `${v.slice(0,2)}/${v.slice(2)}`;
+  }
+  input.value = v;
+}
+
+function obterCompetenciaAAAAMM() {
+  const campo = document.getElementById('competencia');
+  const texto = String(campo.value || '').trim();
+  if (!/^\d{2}\/\d{4}$/.test(texto)) {
+    throw new Error('Informe a competência no formato MM/AAAA.');
+  }
+
+  const [mes, ano] = texto.split('/');
+  const mesNum = Number(mes);
+  if (mesNum < 1 || mesNum > 12) {
+    throw new Error('Mês inválido. Use de 01 a 12.');
+  }
+
+  return `${ano}${mes}`;
+}
+
+function executarConsolidacao() {
+ let competencia = '';
+
+  try {
+    competencia = obterCompetenciaAAAAMM();
+  } catch (e) {
+    mostrarStatus(e.message || String(e), 'error');
+    return;
+  }
+
+  mostrarStatus(`Abrindo consolidação BPA (${competencia})...`, 'info');
+  travarBotoes(true);
+
+  google.script.run
+     .withSuccessHandler((msg) => {
+      mostrarStatus(msg || 'Consolidação concluída com sucesso.', 'success');
+      travarBotoes(false);
+    })
+    .withFailureHandler((err) => {
+      const msg = err && err.message ? err.message : String(err);
+      mostrarStatus(`Erro ao consolidar: ${msg}`, 'error');
+      travarBotoes(false);
+    })
+    .consolidarBPA_Blocos(competencia);
+}
+
+function executarGeracao() {
+  mostrarStatus('Abrindo gerador do arquivo BPA...', 'info');
+  travarBotoes(true);
+
+  google.script.run
+    .withSuccessHandler(() => {
+      mostrarStatus('Gerador de arquivo BPA aberto.', 'success');
+      travarBotoes(false);
+    })
+    .withFailureHandler((err) => {
+      const msg = err && err.message ? err.message : String(err);
+      mostrarStatus(`Erro ao gerar arquivo: ${msg}`, 'error');
+      travarBotoes(false);
+    })
+    .gerarTxtBPA();
+}
+(function preencherCompetenciaAtual() {
+  const hoje = new Date();
+  const mm = String(hoje.getMonth() + 1).padStart(2, '0');
+  const yyyy = hoje.getFullYear();
+  document.getElementById('competencia').value = `${mm}/${yyyy}`;
+})();
+</script>
+</body>
+</html>
