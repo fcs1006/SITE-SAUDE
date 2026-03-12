@@ -1,0 +1,253 @@
+/**
+ * SCRIPT DE CONSOLIDAÇÃO BPA - CORRIGIDO PARA EVITAR ERRO DE LEITURA
+ */
+
+function consolidarBPA_Blocos() {
+  
+  let competenciaInput = Browser.inputBox("Informe a Competência", 
+    "O script irá buscar APENAS atendimentos deste mês/ano.\nDigite no formato AAAAMM (Ex: 202510):", 
+    Browser.Buttons.OK_CANCEL);
+
+  if (competenciaInput === "cancel" || competenciaInput === "") {
+    SpreadsheetApp.getUi().alert("Operação cancelada.");
+    return;
+  }
+  competenciaInput = competenciaInput.trim();
+
+  // ================= CONFIGURAÇÕES =================
+
+  const ABAS_CIDADES = ["PALMAS", "PORTO NACIONAL", "ARRAIAS", "DIANÓPOLIS", "CAMPOS BELOS", "GURUPI"];
+  const ABA_DESTINO = "BPA";
+  const ABA_ERROS = "RELATORIO_ERROS_BPA";
+  const ABA_BASE = "BASE"; 
+
+  const QTD_POR_CIDADE = {
+    "PALMAS": 6, "PORTO NACIONAL": 5, "ARRAIAS": 2, "DIANÓPOLIS": 2, "CAMPOS BELOS": 3, "GURUPI": 6
+  };
+
+  const MAPA_BLOCO = {
+    DOCUMENTO: [0, 1], NOME: [0, 3], SEXO: [0, 9], DT_NASCIMENTO: [3, 1], 
+    ENDERECO: [6, 1], BAIRRO: [6, 5], TELEFONE: [6, 7], DT_ATENDIMENTO: [10, 1] 
+  };
+
+  const FIXOS = {
+    LINHA_INICIAL: 17, TAMANHO_BLOCO: 14, CNES_UNIDADE: "5193273", PROCEDIMENTO: "0803010125",
+    IBGE: "170560", CBO: "225142", CNS_PROFISSIONAL: "707400015196273",
+    ORIGEM: "BPA", RACA: "03", NACIONALIDADE: "010"
+  };
+
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  
+  // --- CARREGAMENTO DA ABA BASE ---
+  const sheetBase = ss.getSheetByName(ABA_BASE);
+  let mapaBaseNome = {};
+  
+  if (sheetBase) {
+    const dadosBase = sheetBase.getDataRange().getDisplayValues(); 
+    for (let i = 1; i < dadosBase.length; i++) {
+      let nomeBase = String(dadosBase[i][1]).toUpperCase().trim(); 
+      if (nomeBase !== "") {
+        mapaBaseNome[nomeBase] = {
+          documento: dadosBase[i][2],  
+          nascimento: dadosBase[i][3], 
+          endereco: dadosBase[i][5],   
+          sexo: dadosBase[i][10]       
+        };
+      }
+    }
+  }
+
+  let sheetDestino = ss.getSheetByName(ABA_DESTINO);
+  if (!sheetDestino) sheetDestino = ss.insertSheet(ABA_DESTINO);
+  else sheetDestino.clearContents();
+
+  let sheetErros = ss.getSheetByName(ABA_ERROS);
+  if (!sheetErros) sheetErros = ss.insertSheet(ABA_ERROS);
+  else sheetErros.clearContents();
+
+  const cabecalhos = ["LINHA", "CNES", "COMPETENCIA", "CNS PROFISSIONAL", "CBO", "DATA ATENDIMENTO", "FOLHA", "SEQUENCIA", "PROCEDIMENTO", "CNS PACIENTE", "SEXO", "IBGE", "CID", "IDADE", "QUANTIDADE", "CARATER", "AUTORIZACAO", "ORIGEM", "NOME PACIENTE", "DT NASCIMENTO", "RACA", "NACIONALIDADE", "SERVICO", "CEP", "COD LOGRADOURO", "ENDERECO", "COMPLEMENTO", "NUMERO", "BAIRRO", "TELEFONE", "EMAIL", "INE", "CPF", "CATEGORIA"];
+  sheetDestino.getRange(1, 1, 1, cabecalhos.length).setValues([cabecalhos]).setFontWeight("bold");
+  
+  const cabecalhosErros = ["ABA", "NOME PACIENTE", "DATA DE ATENDIMENTO", "MOTIVO DO ERRO", "VALORES ENCONTRADOS"];
+  sheetErros.getRange(1, 1, 1, cabecalhosErros.length).setValues([cabecalhosErros]).setFontWeight("bold");
+
+  let dadosConsolidados = [];
+  let listaErros = [];
+  let folhaAtual = 1;
+  let sequenciaAtual = 1;
+
+  ABAS_CIDADES.forEach(nomeAba => {
+    const sheet = ss.getSheetByName(nomeAba);
+    if (!sheet) return; 
+
+    const qtdProcedimentos = QTD_POR_CIDADE[nomeAba] || 1;
+    const lastRow = sheet.getLastRow();
+    
+    // Se a aba estiver vazia ou menor que o inicio, pula
+    if (lastRow < FIXOS.LINHA_INICIAL) return; 
+
+    // Pega todos os dados como texto para preservar zeros
+    const rangeTotal = sheet.getRange(1, 1, lastRow, 15).getDisplayValues(); 
+
+    for (let i = FIXOS.LINHA_INICIAL - 1; i < lastRow; i += FIXOS.TAMANHO_BLOCO) {
+      
+      // Verifica se a linha do NOME existe dentro do array capturado
+      let linhaNomeIndex = i + MAPA_BLOCO.NOME[0];
+      if (linhaNomeIndex >= rangeTotal.length) break;
+
+      let nomePaciente = rangeTotal[linhaNomeIndex][MAPA_BLOCO.NOME[1]];
+      
+      // Ignora linhas vazias ou cabeçalhos repetidos
+      if (!nomePaciente || nomePaciente === "" || nomePaciente === "NOME") continue;
+
+      // --- PROTEÇÃO CONTRA FIM DE ARQUIVO (AQUI ESTAVA O ERRO) ---
+      let linhaDataIndex = i + MAPA_BLOCO.DT_ATENDIMENTO[0];
+      
+      // Se a linha onde deveria estar a data não existe (acabou a planilha), para o loop
+      if (linhaDataIndex >= rangeTotal.length) break;
+
+      let dtAtendRaw = rangeTotal[linhaDataIndex][MAPA_BLOCO.DT_ATENDIMENTO[1]];
+      // -----------------------------------------------------------
+
+      let dataAtendObj = converterParaData(dtAtendRaw);
+      let competenciaDoRegistro = gerarCompetencia(dataAtendObj);
+      
+      if (competenciaDoRegistro !== competenciaInput) continue; 
+
+      let sexoRaw = rangeTotal[i + MAPA_BLOCO.SEXO[0]][MAPA_BLOCO.SEXO[1]];
+      let docRaw = rangeTotal[i + MAPA_BLOCO.DOCUMENTO[0]][MAPA_BLOCO.DOCUMENTO[1]];
+      let dtNascRaw = rangeTotal[i + MAPA_BLOCO.DT_NASCIMENTO[0]][MAPA_BLOCO.DT_NASCIMENTO[1]];
+      let enderecoRaw = rangeTotal[i + MAPA_BLOCO.ENDERECO[0]][MAPA_BLOCO.ENDERECO[1]];
+
+      // --- TENTATIVA DE CORREÇÃO PELA BASE ---
+      let dadosCorrecao = mapaBaseNome[String(nomePaciente).toUpperCase().trim()];
+      if (dadosCorrecao) {
+        if (!sexoRaw || sexoRaw === "") sexoRaw = dadosCorrecao.sexo;
+        if (!docRaw || docRaw === "" || String(docRaw).replace(/\D/g, "").length < 11) docRaw = dadosCorrecao.documento;
+        if (!dtNascRaw || dtNascRaw === "") dtNascRaw = dadosCorrecao.nascimento;
+        if (!enderecoRaw || enderecoRaw === "") enderecoRaw = dadosCorrecao.endereco;
+      }
+
+      let sexoTratado = tratarSexo(sexoRaw);
+      if (sexoTratado === "") {
+        listaErros.push([nomeAba, nomePaciente, dtAtendRaw, "Sexo não informado", `Valor: ${sexoRaw}`]);
+        continue;
+      }
+
+      let docLimpo = String(docRaw).replace(/\D/g, "");
+      let cnsFinal = "";
+      let cpfFinal = "";
+
+      if (docLimpo.length > 0 && docLimpo.length <= 11) {
+        cpfFinal = docLimpo.padStart(11, "0");
+      } else if (docLimpo.length > 11 && docLimpo.length <= 15) {
+        cnsFinal = docLimpo.padStart(15, "0");
+      }
+
+      if (cnsFinal === "" && cpfFinal === "") {
+        listaErros.push([nomeAba, nomePaciente, dtAtendRaw, "CPF ou CNS ausente/inválido", `Valor: ${docRaw}`]);
+        continue;
+      }
+
+      let dataNascObj = converterParaData(dtNascRaw);
+      if (isNaN(dataAtendObj.getTime()) || isNaN(dataNascObj.getTime())) {
+        listaErros.push([nomeAba, nomePaciente, dtAtendRaw, "Erro de data (Atend/Nasc)", `Atend:${dtAtendRaw} Nasc:${dtNascRaw}`]);
+        continue;
+      }
+
+      let idade = calcularIdade(dataNascObj, dataAtendObj);
+      if (idade < 0 || idade > 120) {
+        listaErros.push([nomeAba, nomePaciente, dtAtendRaw, "Idade inconsistente", `Idade: ${idade}`]);
+        continue;
+      }
+
+      let bairro = rangeTotal[i + MAPA_BLOCO.BAIRRO[0]][MAPA_BLOCO.BAIRRO[1]];
+      let telefone = rangeTotal[i + MAPA_BLOCO.TELEFONE[0]][MAPA_BLOCO.TELEFONE[1]];
+      let codigoLogradouro = definirCodigoLogradouro(enderecoRaw);
+
+      if (sequenciaAtual > 99) {
+        folhaAtual++;
+        sequenciaAtual = 1;
+      }
+
+      dadosConsolidados.push([
+        "03", FIXOS.CNES_UNIDADE, competenciaInput, FIXOS.CNS_PROFISSIONAL, FIXOS.CBO, 
+        formatarDataBPA(dataAtendObj), formatarNumero(folhaAtual, 3), formatarNumero(sequenciaAtual, 2),
+        FIXOS.PROCEDIMENTO, cnsFinal, sexoTratado, FIXOS.IBGE, "", 
+        formatarNumero(idade, 3), formatarNumero(qtdProcedimentos, 6), "01", "", FIXOS.ORIGEM,
+        String(nomePaciente).substring(0, 30), formatarDataBPA(dataNascObj), FIXOS.RACA, FIXOS.NACIONALIDADE,
+        "", "773050000", codigoLogradouro, String(enderecoRaw).substring(0, 30), "", "SN",
+        String(bairro).substring(0, 30), telefone, "", "", cpfFinal, ""
+      ]);
+      sequenciaAtual++;
+    }
+  });
+
+  if (dadosConsolidados.length > 0) {
+    sheetDestino.getRange(2, 1, dadosConsolidados.length, dadosConsolidados[0].length).setNumberFormat("@").setValues(dadosConsolidados);
+  }
+
+  if (listaErros.length > 0) {
+    sheetErros.getRange(2, 1, listaErros.length, cabecalhosErros.length).setValues(listaErros);
+    SpreadsheetApp.getUi().alert(`Finalizado.\nSucesso: ${dadosConsolidados.length}\nErros detectados: ${listaErros.length}`);
+  } else {
+    SpreadsheetApp.getUi().alert(`Sucesso! ${dadosConsolidados.length} registros consolidados.`);
+  }
+}
+
+// ================= FUNÇÕES AUXILIARES (MANTIDAS IGUAIS) =================
+
+function converterParaData(valor) {
+  if (valor instanceof Date) return valor;
+  if (!valor || valor === "" || typeof valor === "string" && (valor.includes("DATA") || valor.includes("GMT"))) return new Date("invalid");
+  
+  if (typeof valor === 'string') {
+    let valorCorrigido = valor.replace(/\\/g, "/");
+    if (valorCorrigido.includes('/')) {
+      let parts = valorCorrigido.split('/');
+      if (parts.length === 3) {
+        return new Date(parts[2], parts[1] - 1, parts[0]);
+      }
+    }
+  }
+  return new Date(valor);
+}
+
+function tratarSexo(sexoInput) {
+  if (!sexoInput || sexoInput === "") return "";
+  let s = String(sexoInput).toUpperCase().trim();
+  if (s === "M" || s.startsWith("MASC")) return "M";
+  if (s === "F" || s.startsWith("FEM")) return "F";
+  return "";
+}
+
+function gerarCompetencia(date) {
+  if (!date || isNaN(date.getTime())) return "000000";
+  return Utilities.formatDate(date, Session.getScriptTimeZone(), "yyyyMM");
+}
+
+function formatarDataBPA(date) {
+  if (!date || isNaN(date.getTime())) return "";
+  return Utilities.formatDate(date, Session.getScriptTimeZone(), "dd/MM/yyyy");
+}
+
+function calcularIdade(nascimento, referencia) {
+  if (!nascimento || isNaN(nascimento.getTime()) || !referencia || isNaN(referencia.getTime())) return -1;
+  let idade = referencia.getFullYear() - nascimento.getFullYear();
+  let m = referencia.getMonth() - nascimento.getMonth();
+  if (m < 0 || (m === 0 && referencia.getDate() < nascimento.getDate())) idade--;
+  return idade;
+}
+
+function definirCodigoLogradouro(endereco) {
+  if (!endereco) return "081";
+  const end = String(endereco).toUpperCase();
+  const termosRurais = ["SITIO", "SÍTIO", "FAZENDA", "FAZ.", "CHACARA", "CHÁCARA", "POVOADO", "ZONA RURAL", "ASSENTAMENTO"];
+  return termosRurais.some(termo => end.includes(termo)) ? "037" : "081";
+}
+
+function formatarNumero(num, size) {
+  let s = String(num);
+  while (s.length < size) s = "0" + s;
+  return s;
+}
