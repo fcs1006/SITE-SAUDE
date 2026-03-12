@@ -45,6 +45,13 @@ function doGet(e) {
       .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
   }
 
+ if (e.parameter && e.parameter.page === 'txt') {
+    return HtmlService.createHtmlOutputFromFile('TXT')
+      .setTitle('Ferramentas BPA')
+      .addMetaTag('viewport', 'width=device-width, initial-scale=1')
+      .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+  }
+
   // Página principal
   return HtmlService.createHtmlOutputFromFile('PAGINA')
     .setTitle('Sistema de Saúde - Conceição')
@@ -119,7 +126,7 @@ function buscarDadosRelatorioJesus(mesReferencia, usuario, senha, destinosSeleci
     throw new Error("Formato inválido. Use MM/AAAA.");
   }
 
-  const ss = SpreadsheetApp.openById("12d04IePMmvgixxG3LHkDBsOBQB7aGR7qbIhKMucfDio");
+  const ss = SpreadsheetApp.openById("1UvqEffKpycEtnf6zZklFP0JMgSj7r71mBmjUNkgXb_c");
   const relatorio = ss.getSheetByName("RELATORIO");
   if (!relatorio) throw new Error("Aba RELATORIO não encontrada.");
 
@@ -184,7 +191,7 @@ function buscarDadosRelatorioTFD(dataReferencia, usuario, senha) {
     throw new Error("Formato inválido. Use DD/MM/AAAA.");
   }
 
-  const ss = SpreadsheetApp.openById("12d04IePMmvgixxG3LHkDBsOBQB7aGR7qbIhKMucfDio");
+  const ss = SpreadsheetApp.openById("1UvqEffKpycEtnf6zZklFP0JMgSj7r71mBmjUNkgXb_c");
   const abaRel = ss.getSheetByName("RELATORIO");
   const abaBase = ss.getSheetByName("BASE");
 
@@ -967,7 +974,7 @@ function buscarResumoMensal(mesAno, usuario, senha) {
     throw new Error("Formato inválido. Use MM/YYYY");
   }
 
-  const ss = SpreadsheetApp.openById("12d04IePMmvgixxG3LHkDBsOBQB7aGR7qbIhKMucfDio");
+  const ss = SpreadsheetApp.openById("1UvqEffKpycEtnf6zZklFP0JMgSj7r71mBmjUNkgXb_c");
   const aba = ss.getSheetByName("RELATORIO");
   if (!aba) throw new Error("Aba RELATORIO não encontrada");
 
