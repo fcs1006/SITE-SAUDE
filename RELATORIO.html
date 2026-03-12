@@ -405,6 +405,101 @@
     }, 0);
   }
 
+  function construirResumoTFD(lista) {
+    const linhasResumo = [
+      { num: 1, passagem: "IDA E VOLTA C/ ACOMPANHANTE", pacientes: 0, acompanhantes: 0, total: 0 },
+      { num: 2, passagem: "IDA E VOLTA S/ ACOMPANHANTE", pacientes: 0, acompanhantes: 0, total: 0 },
+      { num: 3, passagem: "SÓ IDA COM ACOMPANHANTE", pacientes: 0, acompanhantes: 0, total: 0 },
+      { num: 4, passagem: "SÓ IDA SEM ACOMPANHANTE", pacientes: 0, acompanhantes: 0, total: 0 },
+      { num: 5, passagem: "SÓ VOLTA C/ ACOMPANHANTE", pacientes: 0, acompanhantes: 0, total: 0 },
+      { num: 6, passagem: "SÓ VOLTA S/ ACOMPANHANTE", pacientes: 0, acompanhantes: 0, total: 0 }
+    ];
+
+    (Array.isArray(lista) ? lista : []).forEach(d => {
+      const tipo = String(d.obs || "").toUpperCase().trim();
+      const acompQtd = [d.nomeA1, d.nomeA2]
+        .map(v => String(v || "").trim())
+        .filter(Boolean).length;
+
+      let linha = null;
+      let multiplicador = 1;
+
+      if (tipo === "IDA E VOLTA") {
+        multiplicador = 2;
+        linha = acompQtd > 0 ? linhasResumo[0] : linhasResumo[1];
+      } else if (tipo === "SÓ IDA") {
+        linha = acompQtd > 0 ? linhasResumo[2] : linhasResumo[3];
+      } else if (tipo === "SÓ VOLTA") {
+        linha = acompQtd > 0 ? linhasResumo[4] : linhasResumo[5];
+      }
+
+      if (!linha) return;
+
+      linha.pacientes += 1;
+      linha.acompanhantes += acompQtd;
+      linha.total += (1 + acompQtd) * multiplicador;
+    });
+
+    return linhasResumo;
+  }
+
+  function construirTabelaResumoTFD(lista) {
+    const resumo = construirResumoTFD(lista);
+
+    let somaPacientes = 0;
+    let somaAcompanhantes = 0;
+    let somaPessoas = 0;
+    let somaPassagens = 0;
+
+    const linhas = resumo.map(item => {
+      const totalPessoasLinha = item.pacientes + item.acompanhantes;
+      somaPacientes += item.pacientes;
+      somaAcompanhantes += item.acompanhantes;
+      somaPessoas += totalPessoasLinha;
+      somaPassagens += item.total;
+
+      return `
+        <tr>
+          <td>${item.num}</td>
+          <td>${escaparHtml(item.passagem)}</td>
+          <td>${item.pacientes}</td>
+          <td>${item.acompanhantes}</td>
+          <td>${totalPessoasLinha}</td>
+          <td>${item.total}</td>
+        </tr>`;
+    }).join("");
+
+    return `
+      <section class="secao-resumo-tfd">
+        <h2>RESUMO TFD</h2>
+        <table class="resumo-tfd-table">
+          <thead>
+            <tr>
+              <th>Nº</th>
+              <th>PASSAGENS</th>
+              <th>PACIENTES</th>
+              <th>ACOMPANHANTE</th>
+              <th>TOTAL (PESSOAS)</th>
+              <th>PASSAGENS DO DIA</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${linhas}
+          </tbody>
+          <tfoot>
+            <tr>
+              <td colspan="2" style="text-align:right;"><strong>TOTAL</strong></td>
+              <td><strong>${somaPacientes}</strong></td>
+              <td><strong>${somaAcompanhantes}</strong></td>
+              <td><strong>${somaPessoas}</strong></td>
+              <td><strong>${somaPassagens}</strong></td>
+            </tr>
+          </tfoot>
+        </table>
+      </section>`;
+  }
+
+
   function construirTabelaTFD(destinoCidade, lista) {
     const linhas = lista.map((d, idx) => {
       const acompanhante = montarAcompanhante(d);
@@ -419,6 +514,8 @@
           <td>${escaparHtml(d.motivo || "")}</td>
           <td>${escaparHtml(d.hora || "")}</td>
           <td>${escaparHtml(d.local || "")}</td>
+           <td>${escaparHtml(d.obs || "")}</td>
+          <td>${escaparHtml(d.obsA2 || "")}</td>
           <td></td>
         </tr>`;
     }).join("");
@@ -431,14 +528,16 @@
         <table class="tfd-table">
           <colgroup>
             <col style="width:1%;">
-            <col style="width:20%;">
-            <col style="width:10%;">
-            <col style="width:20%;">
+           <col style="width:18%;">
+            <col style="width:11%;">
+            <col style="width:16%;">
             <col style="width:8%;">
-            <col style="width:10%;">
+            <col style="width:9%;">
             <col style="width:5%;">
+             <col style="width:9%;">
             <col style="width:8%;">
-            <col style="width:18%;">
+            <col style="width:8%;">
+            <col style="width:7%;">
           </colgroup>
           <thead>
             <tr>
@@ -450,11 +549,13 @@
               <th>MOTIVO</th>
               <th>HORÁRIO</th>
               <th>LOCAL</th>
+               <th>OBS</th>
+              <th>OBS 2</th>
               <th>CONTROLE</th>
             </tr>
           </thead>
           <tbody>
-            ${linhas || `<tr><td colspan="9" class="vazio">Nenhum paciente para ${escaparHtml(destinoCidade)}.</td></tr>`}
+          ${linhas || `<tr><td colspan="11" class="vazio">Nenhum paciente para ${escaparHtml(destinoCidade)}.</td></tr>`}
           </tbody>
         </table>
         <div class="subtotal"><strong>TOTAL ${escaparHtml(destinoCidade)}:</strong> ${contarTotalPessoas(lista)}</div>
@@ -462,11 +563,20 @@
   }
 
   function imprimirTFD() {
-    const filtroData = document.getElementById("filtroData").value;
-    if (!filtroData) {
+   const filtroDataInicio = document.getElementById("filtroDataInicio")?.value || "";
+    const filtroDataFim = document.getElementById("filtroDataFim")?.value || "";
+
+    if (!filtroDataInicio && !filtroDataFim) {
       alert("Selecione a DATA no filtro antes de gerar o TFD.");
       return;
     }
+
+ if (filtroDataInicio && filtroDataFim && filtroDataInicio !== filtroDataFim) {
+      alert("Para gerar o TFD, selecione apenas um dia (mesma data inicial e final).");
+      return;
+    }
+
+    const filtroData = filtroDataInicio || filtroDataFim;
 
     const [ano, mes, dia] = filtroData.split("-");
     const dataFormatada = `${dia}/${mes}/${ano}`;
@@ -482,7 +592,7 @@
     });
 
     const totalGeral = contarTotalPessoas(palmas) + contarTotalPessoas(portoNacional);
-
+    const baseResumoTFD = [...portoNacional, ...palmas];
 
     const html = `
       <!doctype html>
@@ -501,6 +611,14 @@
           .vazio { text-align: center; }
           .subtotal, .total-geral { margin-top: 8px; font-size: 12px; }
           .separador { border-top: 2px solid #000; margin: 18px 0; }
+          .secao-resumo-tfd { margin-top: 20px; }
+          .secao-resumo-tfd h2 { font-size: 13px; margin: 0 0 8px; text-align: center; }
+          .resumo-tfd-table th, .resumo-tfd-table td { text-align: center; }
+          .resumo-tfd-table th:nth-child(2), .resumo-tfd-table td:nth-child(2) { text-align: left; }
+          .resumo-tfd-table tfoot td { font-weight: bold; }
+          .resumo-tfd-table tbody td:last-child,
+          .resumo-tfd-table tfoot td:last-child { background: #fff3e0; }
+
           @media print {
             @page { size: A4 portrait; margin: 10mm; }
             .secao-tfd { page-break-after: auto; }
@@ -511,7 +629,8 @@
         ${construirTabelaTFD("PORTO NACIONAL", portoNacional).replace("__DATA_ESCOLHIDA__", escaparHtml(dataFormatada))}
         <div class="separador"></div>
         ${construirTabelaTFD("PALMAS", palmas).replace("__DATA_ESCOLHIDA__", escaparHtml(dataFormatada))}
-        <div class="total-geral"><strong>TOTAL DE PACIENTES:</strong> ${totalGeral}</div>
+      <div class="total-geral"><strong>TOTAL DE PESSOAS NO TFD:</strong> ${totalGeral}</div>
+        ${construirTabelaResumoTFD(baseResumoTFD)}
 
       </body>
       </html>`;
@@ -638,7 +757,9 @@
 function verificarBloqueio(origem) {
     const excecoesDataDestino = (filtroAtivo === 'DATA' && origem === 'DESTINO')
       || (filtroAtivo === 'DESTINO' && origem === 'DATA')
-      || (filtroAtivo === 'DATA_DESTINO' && (origem === 'DATA' || origem === 'DESTINO'));
+      || (filtroAtivo === 'DATA_DESTINO' && (origem === 'DATA' || origem === 'DESTINO'))
+      || (filtroAtivo === 'HOJE' && origem === 'DESTINO')
+      || (filtroAtivo === 'DESTINO' && origem === 'HOJE');
     if (excecoesDataDestino) return false;
     if (filtroAtivo && filtroAtivo !== origem) return true;
     return false;
