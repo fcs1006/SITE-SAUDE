@@ -2,17 +2,19 @@
  * SCRIPT DE CONSOLIDAÇÃO BPA - CORRIGIDO PARA EVITAR ERRO DE LEITURA
  */
 
-function consolidarBPA_Blocos() {
-  
-  let competenciaInput = Browser.inputBox("Informe a Competência", 
-    "O script irá buscar APENAS atendimentos deste mês/ano.\nDigite no formato AAAAMM (Ex: 202510):", 
-    Browser.Buttons.OK_CANCEL);
+function consolidarBPA_Blocos(competenciaParametro) {
+  let competenciaInput = String(competenciaParametro || "").trim();
 
-  if (competenciaInput === "cancel" || competenciaInput === "") {
-    SpreadsheetApp.getUi().alert("Operação cancelada.");
-    return;
+  if (!competenciaInput) {
+    competenciaInput = solicitarCompetenciaBPA_();
   }
-  competenciaInput = competenciaInput.trim();
+
+   if (!competenciaInput) {
+    throw new Error("Operação cancelada. Informe uma competência no formato AAAAMM.");
+  }
+ if (!/^\d{6}$/.test(competenciaInput)) {
+    throw new Error("Competência inválida. Informe no formato AAAAMM (ex: 202510).");
+  }
 
   // ================= CONFIGURAÇÕES =================
 
@@ -187,15 +189,47 @@ function consolidarBPA_Blocos() {
     sheetDestino.getRange(2, 1, dadosConsolidados.length, dadosConsolidados[0].length).setNumberFormat("@").setValues(dadosConsolidados);
   }
 
+  let mensagemFinal = `Sucesso! ${dadosConsolidados.length} registros consolidados.`;
   if (listaErros.length > 0) {
     sheetErros.getRange(2, 1, listaErros.length, cabecalhosErros.length).setValues(listaErros);
-    SpreadsheetApp.getUi().alert(`Finalizado.\nSucesso: ${dadosConsolidados.length}\nErros detectados: ${listaErros.length}`);
-  } else {
-    SpreadsheetApp.getUi().alert(`Sucesso! ${dadosConsolidados.length} registros consolidados.`);
+     mensagemFinal = `Finalizado. Sucesso: ${dadosConsolidados.length}. Erros detectados: ${listaErros.length}. Confira a aba ${ABA_ERROS}.`;
   }
+
+
+  const ui = obterUiSeDisponivel_();
+  if (ui) {
+    ui.alert(mensagemFinal);
+  }
+
+  return mensagemFinal;
+
 }
 
 // ================= FUNÇÕES AUXILIARES (MANTIDAS IGUAIS) =================
+
+function solicitarCompetenciaBPA_() {
+  const ui = obterUiSeDisponivel_();
+  if (!ui || typeof Browser === 'undefined' || typeof Browser.inputBox !== 'function') {
+    return "";
+  }
+
+  const resposta = Browser.inputBox(
+    "Informe a Competência",
+    "O script irá buscar APENAS atendimentos deste mês/ano.\nDigite no formato AAAAMM (Ex: 202510):",
+    Browser.Buttons.OK_CANCEL
+  );
+
+  if (resposta === null || resposta === "cancel") return "";
+  return String(resposta).trim();
+}
+
+function obterUiSeDisponivel_() {
+  try {
+    return SpreadsheetApp.getUi();
+  } catch (e) {
+    return null;
+  }
+}
 
 function converterParaData(valor) {
   if (valor instanceof Date) return valor;
